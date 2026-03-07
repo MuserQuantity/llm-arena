@@ -7,6 +7,13 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
+    # Auth – configure via ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET env vars
+    admin_username: str = "admin"
+    admin_password: str = ""  # REQUIRED: set ADMIN_PASSWORD in .env
+    jwt_secret: str = ""  # REQUIRED: set JWT_SECRET in .env
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440  # 24 hours
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

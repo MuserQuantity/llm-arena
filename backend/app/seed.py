@@ -2,7 +2,6 @@
 import asyncio
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session, engine
 from app.models.base import Base
@@ -103,7 +102,10 @@ async def seed():
             Task(
                 title="React Todo App",
                 dimension_id=dims_data[2].id,
-                prompt="Create a React Todo application with add, delete, and mark-complete functionality. Use TypeScript and Tailwind CSS.",
+                prompt=(
+                    "Create a React Todo application with add, delete, and mark-complete functionality. "
+                    "Use TypeScript and Tailwind CSS."
+                ),
                 eval_mode="llm_judge",
                 judge_model_id=models_data[0].id,
                 judge_rubric="Evaluate code quality, completeness, UI design, and TypeScript usage on a 1-10 scale.",
@@ -112,7 +114,10 @@ async def seed():
             Task(
                 title="Algorithm Analysis",
                 dimension_id=dims_data[1].id,
-                prompt="Analyze the time and space complexity of the following sorting algorithms: QuickSort, MergeSort, HeapSort. Provide Big-O notation for best, average, and worst cases.",
+                prompt=(
+                    "Analyze the time and space complexity of the following sorting algorithms: "
+                    "QuickSort, MergeSort, HeapSort. Provide Big-O notation for best, average, and worst cases."
+                ),
                 eval_mode="llm_judge",
                 judge_model_id=models_data[0].id,
                 judge_rubric="Evaluate correctness, completeness, and clarity of the analysis on a 1-10 scale.",
@@ -121,10 +126,16 @@ async def seed():
             Task(
                 title="Python API Endpoint",
                 dimension_id=dims_data[0].id,
-                prompt="Write a FastAPI endpoint that implements CRUD operations for a 'Product' resource with proper validation, error handling, and async database operations.",
+                prompt=(
+                    "Write a FastAPI endpoint that implements CRUD operations for a 'Product' resource "
+                    "with proper validation, error handling, and async database operations."
+                ),
                 eval_mode="both",
                 judge_model_id=models_data[1].id,
-                judge_rubric="Evaluate code correctness, error handling, async patterns, and API design on a 1-10 scale.",
+                judge_rubric=(
+                    "Evaluate code correctness, error handling, async patterns, "
+                    "and API design on a 1-10 scale."
+                ),
                 expected_output_type="code",
             ),
         ]

@@ -9,6 +9,7 @@ import {
   ListChecks,
   Activity,
   Zap,
+  LogOut,
 } from "lucide-react";
 
 const navItems = [
@@ -67,10 +68,20 @@ export function Sidebar() {
         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-lg">
           👤
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">Admin</div>
           <div className="text-xs text-muted-foreground">admin@llmarena.io</div>
         </div>
+        <button
+          onClick={() => {
+            localStorage.removeItem("llm_arena_token");
+            window.location.href = "/login";
+          }}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          title="Sign out"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </aside>
   );

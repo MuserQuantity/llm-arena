@@ -77,19 +77,29 @@ async def delete_model(model_id: str, db: AsyncSession = Depends(get_db)):
 async def test_connection(model_id: str, db: AsyncSession = Depends(get_db)):
     import httpx
 
+    from app.utils.url_validation import validate_api_url
+
     result = await db.execute(select(LLMModel).where(LLMModel.id == model_id))
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+
+    api_base = model.api_base
+    if not api_base:
+        return {"status": "error", "message": "No API base URL configured"}
+
+    validate_api_url(api_base)
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             headers = {"Authorization": f"Bearer {model.api_key_encrypted}"}
             if model.custom_headers:
                 headers.update(model.custom_headers)
-            resp = await client.get(f"{model.api_base}/models", headers=headers)
+            resp = await client.get(f"{api_base}/models", headers=headers)
             if resp.status_code == 200:
                 return {"status": "success", "message": "Connection successful"}
             return {"status": "error", "message": f"HTTP {resp.status_code}"}
+    except HTTPException:
+        raise
     except Exception as e:
         return {"status": "error", "message": str(e)}
