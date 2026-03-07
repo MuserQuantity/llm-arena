@@ -19,66 +19,86 @@ async def seed():
             print("Data already seeded, skipping.")
             return
 
-        # Create models
+        # Create models – latest flagship models from each provider
         models_data = [
             LLMModel(
-                name="GPT-4o",
+                name="GPT-5",
                 provider="OpenAI",
-                model_id="openai/gpt-4.1",
-                icon_key="gpt-4o",
+                model_id="openai/gpt-5",
+                icon_key="gpt-5",
                 api_base="",
                 api_key_encrypted="",
-                capabilities=["code", "reasoning", "analysis"],
+                capabilities=["code", "reasoning", "frontend", "analysis"],
                 status="active",
             ),
             LLMModel(
-                name="Claude Sonnet 4.6",
+                name="Claude Opus 4.6",
                 provider="Anthropic",
-                model_id="anthropic/claude-sonnet-4.6",
-                icon_key="claude",
+                model_id="anthropic/claude-opus-4.6",
+                icon_key="claude-opus-4.6",
                 api_base="",
                 api_key_encrypted="",
-                capabilities=["code", "reasoning", "summarization"],
+                capabilities=["code", "reasoning", "summarization", "analysis"],
                 status="active",
             ),
             LLMModel(
-                name="Gemini 1.5 Pro",
+                name="Gemini 3 Pro",
                 provider="Google",
-                model_id="google/gemini-2.5-pro-preview",
-                icon_key="gemini",
+                model_id="google/gemini-3-pro-preview",
+                icon_key="gemini-3-pro",
                 api_base="",
                 api_key_encrypted="",
                 capabilities=["code", "reasoning", "frontend"],
                 status="active",
             ),
             LLMModel(
-                name="DeepSeek V3",
+                name="DeepSeek V3.2",
                 provider="DeepSeek",
-                model_id="deepseek/deepseek-chat-v3-0324",
-                icon_key="deepseek",
+                model_id="deepseek-ai/DeepSeek-V3.2",
+                icon_key="deepseek-v3.2",
                 api_base="",
                 api_key_encrypted="",
                 capabilities=["code", "reasoning"],
                 status="active",
             ),
             LLMModel(
-                name="Grok 4",
+                name="Grok 4.1",
                 provider="xAI",
-                model_id="x-ai/grok-4",
-                icon_key="grok",
+                model_id="x-ai/grok-4.1-fast",
+                icon_key="grok-4.1",
                 api_base="",
                 api_key_encrypted="",
                 capabilities=["code", "reasoning", "analysis"],
                 status="active",
             ),
             LLMModel(
-                name="GPT-5",
-                provider="OpenAI",
-                model_id="openai/gpt-5",
-                icon_key="gpt-4o",
+                name="Qwen3 Next 80B",
+                provider="Alibaba",
+                model_id="Qwen/Qwen3-Next-80B-A3B-Instruct",
+                icon_key="qwen3-next-80b",
                 api_base="",
                 api_key_encrypted="",
-                capabilities=["code", "reasoning", "frontend", "analysis"],
+                capabilities=["code", "reasoning", "summarization"],
+                status="active",
+            ),
+            LLMModel(
+                name="Kimi K2",
+                provider="Moonshot",
+                model_id="moonshotai/Kimi-K2-Thinking",
+                icon_key="kimi-k2",
+                api_base="",
+                api_key_encrypted="",
+                capabilities=["code", "reasoning", "analysis"],
+                status="active",
+            ),
+            LLMModel(
+                name="GPT-4.1",
+                provider="OpenAI",
+                model_id="openai/gpt-4.1",
+                icon_key="gpt-4.1",
+                api_base="",
+                api_key_encrypted="",
+                capabilities=["code", "reasoning", "analysis"],
                 status="active",
             ),
         ]
@@ -145,7 +165,7 @@ async def seed():
 
         # Create model assignments for each task
         for task in tasks_data:
-            for model in models_data[:4]:  # Assign first 4 models to each task
+            for model in models_data[:6]:  # Assign first 6 models to each task
                 assignment = TaskModelAssignment(task_id=task.id, model_id=model.id)
                 session.add(assignment)
 
