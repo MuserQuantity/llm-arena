@@ -11,7 +11,7 @@ export default function DashboardPage() {
 
   // Filter leaderboard data based on active dimension
   const filteredData = activeDimension
-    ? leaderboardData
+    ? leaderboardData.filter((entry) => entry.dimension_id === activeDimension)
     : leaderboardData;
 
   return (

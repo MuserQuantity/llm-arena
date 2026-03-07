@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.models import Run, TaskModelAssignment
+from app.models.models import Run, Task, TaskModelAssignment
 from app.schemas.schemas import RunResponse
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -52,7 +52,7 @@ async def list_runs(
     query = (
         select(Run)
         .options(
-            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task),
+            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task).selectinload(Task.dimension),
             selectinload(Run.task_assignment).selectinload(TaskModelAssignment.model),
         )
         .order_by(Run.created_at.desc())
@@ -79,7 +79,7 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
         select(Run)
         .where(Run.id == run_id)
         .options(
-            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task),
+            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task).selectinload(Task.dimension),
             selectinload(Run.task_assignment).selectinload(TaskModelAssignment.model),
         )
     )
@@ -115,7 +115,7 @@ async def retry_run(run_id: str, db: AsyncSession = Depends(get_db)):
         select(Run)
         .where(Run.id == run_id)
         .options(
-            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task),
+            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task).selectinload(Task.dimension),
             selectinload(Run.task_assignment).selectinload(TaskModelAssignment.model),
         )
     )
@@ -147,7 +147,7 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
         select(Run)
         .where(Run.id == run_id)
         .options(
-            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task),
+            selectinload(Run.task_assignment).selectinload(TaskModelAssignment.task).selectinload(Task.dimension),
             selectinload(Run.task_assignment).selectinload(TaskModelAssignment.model),
         )
     )
@@ -178,11 +178,12 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
                 "messages": [{"role": "user", "content": task.prompt}],
                 "temperature": 0.7,
             }
-            # Apply default and override params
+            # Apply default and override params (but protect core fields)
+            protected_keys = {"model", "messages"}
             if model.default_params:
-                payload.update(model.default_params)
+                payload.update({k: v for k, v in model.default_params.items() if k not in protected_keys})
             if assignment.override_params:
-                payload.update(assignment.override_params)
+                payload.update({k: v for k, v in assignment.override_params.items() if k not in protected_keys})
 
             resp = await client.post(f"{api_base}/chat/completions", headers=headers, json=payload)
             resp.raise_for_status()

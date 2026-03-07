@@ -42,7 +42,7 @@ export function LeaderboardTable({ data }: LeaderboardTableProps) {
           <TableRow
             key={entry.model_id}
             className="cursor-pointer"
-            onClick={() => router.push(`/results/r1`)}
+            onClick={() => router.push(`/admin/runs?model_id=${entry.model_id}`)}
           >
             <TableCell className="font-medium">{entry.rank}</TableCell>
             <TableCell>

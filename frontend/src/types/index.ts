@@ -87,4 +87,5 @@ export interface LeaderboardEntry {
   run_count: number;
   top_score: number;
   last_updated: string;
+  dimension_id?: string;
 }

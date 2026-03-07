@@ -2,8 +2,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
+    headers: { "Content-Type": "application/json", ...options?.headers },
   });
   if (!res.ok) {
     const errorBody = await res.text().catch(() => "");
@@ -60,7 +60,7 @@ export const apiRuns = {
     return apiFetch<RunResponse[]>(`/api/runs${qs ? `?${qs}` : ""}`);
   },
   get: (id: string) => apiFetch<RunResponse>(`/api/runs/${id}`),
-  createForTask: (taskId: string) => apiFetch<{ created: number; run_ids: string[] }>("/api/runs", { method: "POST", body: JSON.stringify({ task_id: taskId }) }),
+  createForTask: (taskId: string) => apiFetch<{ created: number; run_ids: string[] }>(`/api/runs?task_id=${encodeURIComponent(taskId)}`, { method: "POST" }),
   retry: (id: string) => apiFetch<RunResponse>(`/api/runs/${id}/retry`, { method: "POST" }),
   execute: (id: string) => apiFetch<{ status: string; run_id: string }>(`/api/runs/${id}/execute`, { method: "POST" }),
 };

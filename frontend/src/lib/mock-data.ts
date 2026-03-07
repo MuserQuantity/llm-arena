@@ -23,12 +23,12 @@ export const tasks: Task[] = [
 ];
 
 export const leaderboardData: LeaderboardEntry[] = [
-  { rank: 1, model_id: "m1", model_name: "GPT-4o", model_icon: "gpt-4o", avg_score: 9.3, run_count: 112, top_score: 9.9, last_updated: "3m ago" },
-  { rank: 2, model_id: "m2", model_name: "Claude 3.5 Sonnet", model_icon: "claude", avg_score: 8.7, run_count: 94, top_score: 9.2, last_updated: "8m ago" },
-  { rank: 3, model_id: "m3", model_name: "Gemini 1.5 Pro", model_icon: "gemini", avg_score: 6.1, run_count: 77, top_score: 8.5, last_updated: "14m ago" },
-  { rank: 4, model_id: "m4", model_name: "DeepSeek V3", model_icon: "deepseek", avg_score: 6.4, run_count: 85, top_score: 6.8, last_updated: "24m ago" },
-  { rank: 5, model_id: "m5", model_name: "Llama 3.1 70B", model_icon: "llama", avg_score: 4.7, run_count: 62, top_score: 6.1, last_updated: "35m ago" },
-  { rank: 6, model_id: "m6", model_name: "Mistral Large", model_icon: "mistral", avg_score: 4.1, run_count: 44, top_score: 5.0, last_updated: "2h ago" },
+  { rank: 1, model_id: "m1", model_name: "GPT-4o", model_icon: "gpt-4o", avg_score: 9.3, run_count: 112, top_score: 9.9, last_updated: "3m ago", dimension_id: "d1" },
+  { rank: 2, model_id: "m2", model_name: "Claude 3.5 Sonnet", model_icon: "claude", avg_score: 8.7, run_count: 94, top_score: 9.2, last_updated: "8m ago", dimension_id: "d2" },
+  { rank: 3, model_id: "m3", model_name: "Gemini 1.5 Pro", model_icon: "gemini", avg_score: 6.1, run_count: 77, top_score: 8.5, last_updated: "14m ago", dimension_id: "d1" },
+  { rank: 4, model_id: "m4", model_name: "DeepSeek V3", model_icon: "deepseek", avg_score: 6.4, run_count: 85, top_score: 6.8, last_updated: "24m ago", dimension_id: "d3" },
+  { rank: 5, model_id: "m5", model_name: "Llama 3.1 70B", model_icon: "llama", avg_score: 4.7, run_count: 62, top_score: 6.1, last_updated: "35m ago", dimension_id: "d2" },
+  { rank: 6, model_id: "m6", model_name: "Mistral Large", model_icon: "mistral", avg_score: 4.1, run_count: 44, top_score: 5.0, last_updated: "2h ago", dimension_id: "d4" },
 ];
 
 export const runs: Run[] = [
