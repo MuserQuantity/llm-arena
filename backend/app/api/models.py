@@ -88,7 +88,7 @@ async def test_connection(model_id: str, db: AsyncSession = Depends(get_db)):
     if not api_base:
         return {"status": "error", "message": "No API base URL configured"}
 
-    validate_api_url(api_base)
+    await validate_api_url(api_base)
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:

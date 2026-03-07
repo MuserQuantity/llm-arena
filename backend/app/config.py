@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -13,6 +14,20 @@ class Settings(BaseSettings):
     jwt_secret: str = ""  # REQUIRED: set JWT_SECRET in .env
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
+
+    @field_validator("admin_password")
+    @classmethod
+    def validate_admin_password(cls, v: str) -> str:
+        if not v:
+            raise ValueError("ADMIN_PASSWORD must be set in .env")
+        return v
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if not v:
+            raise ValueError("JWT_SECRET must be set in .env")
+        return v
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

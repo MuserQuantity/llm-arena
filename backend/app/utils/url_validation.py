@@ -1,5 +1,6 @@
 """URL validation utilities to prevent SSRF attacks."""
 
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -20,7 +21,7 @@ _BLOCKED_NETWORKS = [
 ]
 
 
-def validate_api_url(url: str) -> str:
+async def validate_api_url(url: str) -> str:
     """Validate that a URL is safe to make requests to (not internal/private).
 
     Returns the validated URL.
@@ -37,8 +38,11 @@ def validate_api_url(url: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid URL: no hostname found.")
 
     # Resolve hostname to IP and check against blocked ranges
+    # Use run_in_executor to avoid blocking the event loop during DNS resolution
     try:
-        addr_infos = socket.getaddrinfo(hostname, None)
+        addr_infos = await asyncio.get_event_loop().run_in_executor(
+            None, socket.getaddrinfo, hostname, None,
+        )
     except socket.gaierror:
         raise HTTPException(status_code=400, detail=f"Cannot resolve hostname: {hostname}")
 

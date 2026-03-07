@@ -170,7 +170,7 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
     api_key = model.api_key_encrypted or settings.llm_api_key
 
     # Validate URL to prevent SSRF
-    validate_api_url(api_base)
+    await validate_api_url(api_base)
 
     # Extract all data we need before releasing the DB session
     model_id_str = model.model_id
