@@ -138,10 +138,16 @@ async def retry_run(run_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{run_id}/execute")
 async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
-    """Execute a single run by calling the LLM API."""
+    """Execute a single run by calling the LLM API.
+
+    DB session is released before the LLM API call to avoid holding connections
+    during long-running HTTP requests (up to 120s).
+    """
     import httpx
 
     from app.config import settings
+    from app.database import async_session
+    from app.utils.url_validation import validate_api_url
 
     result = await db.execute(
         select(Run)
@@ -163,9 +169,28 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
     api_base = model.api_base or settings.llm_api_base_url
     api_key = model.api_key_encrypted or settings.llm_api_key
 
+    # Validate URL to prevent SSRF
+    await validate_api_url(api_base)
+
+    # Extract all data we need before releasing the DB session
+    model_id_str = model.model_id
+    prompt = task.prompt
+    expected_output_type = task.expected_output_type
+    default_params = dict(model.default_params) if model.default_params else None
+    override_params = dict(assignment.override_params) if assignment.override_params else None
+    fixed_params = dict(model.fixed_params) if model.fixed_params else None
+
+    # Mark as running and commit (releases DB connection)
     run.status = "running"
     run.started_at = datetime.now(timezone.utc)
     await db.flush()
+    await db.commit()
+
+    # --- DB session is now released; make the LLM API call ---
+    llm_status = "done"
+    llm_output = ""
+    llm_error = ""
+    started_at = run.started_at
 
     try:
         async with httpx.AsyncClient(timeout=120) as client:
@@ -174,37 +199,48 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
                 "Content-Type": "application/json",
             }
             payload = {
-                "model": model.model_id,
-                "messages": [{"role": "user", "content": task.prompt}],
+                "model": model_id_str,
+                "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.7,
             }
             # Apply default and override params (but protect core fields)
             protected_keys = {"model", "messages"}
-            if model.default_params:
-                payload.update({k: v for k, v in model.default_params.items() if k not in protected_keys})
-            if assignment.override_params:
-                payload.update({k: v for k, v in assignment.override_params.items() if k not in protected_keys})
-            if model.fixed_params:
-                payload.update({k: v for k, v in model.fixed_params.items() if k not in protected_keys})
+            if default_params:
+                payload.update({k: v for k, v in default_params.items() if k not in protected_keys})
+            if override_params:
+                payload.update({k: v for k, v in override_params.items() if k not in protected_keys})
+            if fixed_params:
+                payload.update({k: v for k, v in fixed_params.items() if k not in protected_keys})
 
             resp = await client.post(f"{api_base}/chat/completions", headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
 
-            output = data["choices"][0]["message"]["content"]
-            run.status = "done"
-            run.output = output
-            run.output_type = task.expected_output_type
-            run.completed_at = datetime.now(timezone.utc)
-            run.duration_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
+            llm_output = data["choices"][0]["message"]["content"]
+            llm_status = "done"
 
     except Exception as e:
-        run.status = "failed"
-        run.error_message = str(e)
-        run.completed_at = datetime.now(timezone.utc)
-        if run.started_at:
-            run.duration_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
+        llm_status = "failed"
+        llm_error = str(e)
 
-    await db.flush()
-    await db.refresh(run)
-    return {"status": run.status, "run_id": run.id}
+    # --- Acquire a new DB session to write results ---
+    completed_at = datetime.now(timezone.utc)
+    duration_ms = int((completed_at - started_at).total_seconds() * 1000) if started_at else None
+
+    async with async_session() as write_session:
+        try:
+            result = await write_session.execute(select(Run).where(Run.id == run_id))
+            run = result.scalar_one_or_none()
+            if run:
+                run.status = llm_status
+                run.output = llm_output
+                run.output_type = expected_output_type if llm_status == "done" else run.output_type
+                run.error_message = llm_error
+                run.completed_at = completed_at
+                run.duration_ms = duration_ms
+            await write_session.commit()
+        except Exception:
+            await write_session.rollback()
+            raise
+
+    return {"status": llm_status, "run_id": run_id}

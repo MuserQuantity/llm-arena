@@ -1,10 +1,30 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("llm_arena_token");
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    authHeaders["Authorization"] = `Bearer ${token}`;
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { ...authHeaders, ...options?.headers },
   });
+  if (res.status === 401) {
+    // Token expired or invalid — clear and redirect to login
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("llm_arena_token");
+      window.location.href = "/login";
+    }
+    throw new Error("Unauthorized");
+  }
   if (!res.ok) {
     const errorBody = await res.text().catch(() => "");
     throw new Error(`API error ${res.status}: ${errorBody}`);
@@ -12,6 +32,23 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T;
   return res.json();
 }
+
+// ── Auth ──
+export const apiAuth = {
+  login: async (username: string, password: string): Promise<{ access_token: string; token_type: string }> => {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username, password }),
+    });
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
+      throw new Error(`Login failed: ${errorBody}`);
+    }
+    return res.json();
+  },
+  me: () => apiFetch<{ username: string }>("/api/auth/me"),
+};
 
 // ── Models ──
 export const apiModels = {
