@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,7 +62,7 @@ async def get_model_summary(model_id: str, db: AsyncSession = Depends(get_db)):
     model_result = await db.execute(select(LLMModel).where(LLMModel.id == model_id))
     model = model_result.scalar_one_or_none()
     if not model:
-        return {"error": "Model not found"}
+        raise HTTPException(status_code=404, detail="Model not found")
 
     # Get run stats
     run_stats = await db.execute(
