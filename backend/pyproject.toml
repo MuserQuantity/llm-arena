@@ -3,6 +3,7 @@ name = "llm-arena-backend"
 version = "0.1.0"
 description = "LLM Arena - Internal LLM evaluation platform backend"
 authors = ["LLM Arena Team"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
