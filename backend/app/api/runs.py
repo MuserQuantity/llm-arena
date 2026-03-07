@@ -184,6 +184,8 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
                 payload.update({k: v for k, v in model.default_params.items() if k not in protected_keys})
             if assignment.override_params:
                 payload.update({k: v for k, v in assignment.override_params.items() if k not in protected_keys})
+            if model.fixed_params:
+                payload.update({k: v for k, v in model.fixed_params.items() if k not in protected_keys})
 
             resp = await client.post(f"{api_base}/chat/completions", headers=headers, json=payload)
             resp.raise_for_status()

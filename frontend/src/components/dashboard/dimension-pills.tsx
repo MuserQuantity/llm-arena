@@ -6,7 +6,7 @@ import { Dimension } from "@/types";
 interface DimensionPillsProps {
   dimensions: Dimension[];
   activeDimension: string | null;
-  onSelect: (slug: string | null) => void;
+  onSelect: (id: string | null) => void;
 }
 
 export function DimensionPills({
@@ -29,9 +29,9 @@ export function DimensionPills({
       {dimensions.map((dim) => (
         <button
           key={dim.slug}
-          onClick={() => onSelect(dim.slug)}
+          onClick={() => onSelect(dim.id)}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-            activeDimension === dim.slug
+            activeDimension === dim.id
               ? "bg-blue-600 text-white"
               : "bg-secondary text-muted-foreground hover:bg-accent"
           }`}

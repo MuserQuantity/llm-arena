@@ -190,9 +190,7 @@ export function RunMonitor() {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
         <span>
-          Showing {(page - 1) * PAGE_SIZE + 1}–
-          {Math.min(page * PAGE_SIZE, filteredRuns.length)} of{" "}
-          {filteredRuns.length} runs
+          {filteredRuns.length === 0 ? "No runs found" : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filteredRuns.length)} of ${filteredRuns.length} runs`}
         </span>
         <div className="flex gap-2">
           <Button

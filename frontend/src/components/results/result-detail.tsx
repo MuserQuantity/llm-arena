@@ -85,7 +85,7 @@ function OutputRenderer({
         </div>
         <iframe
           srcDoc={output}
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts"
           className="w-full min-h-96 rounded-lg border border-border bg-white"
           title="Sandboxed Preview"
         />

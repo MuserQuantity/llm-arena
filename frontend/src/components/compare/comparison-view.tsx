@@ -86,7 +86,7 @@ export function ComparisonView({
                   run.output_type === "html" ? (
                     <iframe
                       srcDoc={run.output}
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts"
                       className="w-full h-56 rounded-lg border border-border bg-white"
                       title={`${run.model_name} output`}
                     />
