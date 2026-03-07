@@ -35,8 +35,8 @@ export function TaskForm() {
   const [rubric, setRubric] = useState("");
   const [scriptContent, setScriptContent] = useState("");
   const [assignments, setAssignments] = useState<ModelAssignment[]>([
-    { model_id: "m1", model_name: "GPT-4o", model_icon: "gpt-4o", override_params: "" },
-    { model_id: "m2", model_name: "Claude 3.5 Sonnet", model_icon: "claude", override_params: "" },
+    { model_id: "m1", model_name: "GPT-5", model_icon: "gpt-5", override_params: "" },
+    { model_id: "m2", model_name: "Claude Opus 4.6", model_icon: "claude-opus-4.6", override_params: "" },
   ]);
 
   const outputTypes: OutputType[] = ["html", "markdown", "text", "code", "json"];
