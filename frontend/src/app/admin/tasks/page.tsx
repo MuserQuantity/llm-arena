@@ -230,7 +230,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
                 </SelectTrigger>
                 <SelectContent>
                   {dimensions.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">暂无维度，请先在系统设置中创建</div>
+                    <div className="px-3 py-2 text-xs text-muted-foreground">暂无维度，请先在<a href="/admin/dimensions" className="text-blue-600 underline">维度管理</a>中创建</div>
                   ) : (
                     dimensions.map(d => (
                       <SelectItem key={d.id} value={d.id}>

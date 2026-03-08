@@ -24,6 +24,7 @@ export default function ModelEvalPage() {
   const modelId = params.modelId as string;
   const [data, setData] = useState<ModelEvalSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [executingTask, setExecutingTask] = useState<string | null>(null);
   const [judgingRun, setJudgingRun] = useState<string | null>(null);
   const [batchExecuting, setBatchExecuting] = useState(false);
@@ -33,12 +34,14 @@ export default function ModelEvalPage() {
   const [judgeModelName, setJudgeModelName] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     try {
       const d = await apiDashboard.modelEval(modelId);
       setData(d);
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : String(e);
+      setLoadError(msg);
       toast.error("加载评测数据失败", { description: msg });
     } finally { setLoading(false); }
   }, [modelId]);
@@ -168,7 +171,36 @@ export default function ModelEvalPage() {
   };
 
   if (loading) return <><Topbar title="模型评测" /><main className="p-8"><div className="text-center py-20 text-muted-foreground">加载评测数据中...</div></main></>;
-  if (!data) return <><Topbar title="模型评测" /><main className="p-8"><div className="text-center py-20 text-muted-foreground">模型未找到</div></main></>;
+  if (!data) return (
+    <>
+      <Topbar title="模型评测" />
+      <main className="p-8">
+        <Link href="/admin/models" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> 返回模型列表
+        </Link>
+        <div className="text-center py-16">
+          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <p className="text-lg font-semibold mb-2">{loadError ? "加载评测数据失败" : "模型未找到"}</p>
+          {loadError && (
+            <p className="text-sm text-muted-foreground mb-1 max-w-lg mx-auto break-all">
+              {loadError.length > 200 ? loadError.slice(0, 200) + "…" : loadError}
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground mb-6">
+            {loadError ? "后端服务可能存在异常，请检查日志后重试" : "请确认模型 ID 正确"}
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => { setLoading(true); load(); }}>
+              <RefreshCw className="w-4 h-4 mr-1.5" /> 重试
+            </Button>
+            <Link href="/admin/models">
+              <Button variant="outline">返回模型列表</Button>
+            </Link>
+          </div>
+        </div>
+      </main>
+    </>
+  );
 
   const totalTasks = data.tasks.length;
   const doneTasks = data.tasks.filter(t => t.run_status === "done").length;

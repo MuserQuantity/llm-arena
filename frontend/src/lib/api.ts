@@ -70,6 +70,9 @@ export const apiDimensions = {
   list: () => apiFetch<DimensionResponse[]>("/api/dimensions"),
   create: (data: { name: string; slug: string; description?: string }) =>
     apiFetch<DimensionResponse>("/api/dimensions", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; slug?: string; description?: string }) =>
+    apiFetch<DimensionResponse>(`/api/dimensions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => apiFetch<void>(`/api/dimensions/${id}`, { method: "DELETE" }),
 };
 
 // ── Tasks ──

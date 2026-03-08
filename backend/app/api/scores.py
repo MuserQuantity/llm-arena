@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.models import Run, Score
 from app.schemas.schemas import ScoreCreate, ScoreResponse, ScoreUpdate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["scores"])
 
@@ -25,8 +29,12 @@ async def create_score(run_id: str, data: ScoreCreate, db: AsyncSession = Depend
 
 @router.get("/runs/{run_id}/scores", response_model=list[ScoreResponse])
 async def list_scores(run_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Score).where(Score.run_id == run_id).order_by(Score.created_at))
-    return result.scalars().all()
+    try:
+        result = await db.execute(select(Score).where(Score.run_id == run_id).order_by(Score.created_at))
+        return result.scalars().all()
+    except Exception:
+        logger.warning("Failed to load scores for run %s (possible schema mismatch)", run_id, exc_info=True)
+        return []
 
 
 @router.patch("/scores/{score_id}", response_model=ScoreResponse)

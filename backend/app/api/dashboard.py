@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import case, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.models import Dimension, LLMModel, Run, Score, SystemSetting, Task, TaskModelAssignment
 from app.schemas.schemas import LeaderboardEntry, ModelEvalSummary, ModelTaskResult
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -128,15 +132,30 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
     )
     all_tasks = tasks_result.scalars().all()
 
-    # Get all assignments for this model
-    assignments_result = await db.execute(
-        select(TaskModelAssignment)
-        .where(TaskModelAssignment.model_id == model_id)
-        .options(
-            selectinload(TaskModelAssignment.runs).selectinload(Run.scores),
+    # Get all assignments for this model (with scores; degrade gracefully if schema is stale)
+    scores_available = True
+    try:
+        assignments_result = await db.execute(
+            select(TaskModelAssignment)
+            .where(TaskModelAssignment.model_id == model_id)
+            .options(
+                selectinload(TaskModelAssignment.runs).selectinload(Run.scores),
+            )
         )
-    )
-    assignments = {a.task_id: a for a in assignments_result.scalars().all()}
+        assignments = {a.task_id: a for a in assignments_result.scalars().all()}
+    except Exception:
+        logger.warning(
+            "model-eval %s: failed to load scores (possible schema mismatch), falling back to runs-only",
+            model_id, exc_info=True,
+        )
+        scores_available = False
+        await db.rollback()
+        assignments_result = await db.execute(
+            select(TaskModelAssignment)
+            .where(TaskModelAssignment.model_id == model_id)
+            .options(selectinload(TaskModelAssignment.runs))
+        )
+        assignments = {a.task_id: a for a in assignments_result.scalars().all()}
 
     task_results: list[ModelTaskResult] = []
     dimension_scores: dict[str, list[float]] = {}
@@ -159,7 +178,7 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
             run_id = latest_run.id
             run_status = latest_run.status
 
-            if latest_run.scores:
+            if scores_available and latest_run.scores:
                 for score in latest_run.scores:
                     if score.score_type == "llm_judge":
                         llm_score = score.numeric_score

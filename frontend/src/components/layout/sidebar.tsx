@@ -38,6 +38,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "管理",
     items: [
       { href: "/admin/models", label: "模型管理", icon: Bot },
+      { href: "/admin/dimensions", label: "维度管理", icon: Layers },
       { href: "/admin/tasks", label: "任务管理", icon: ListChecks },
       { href: "/admin/runs", label: "运行监控", icon: Activity },
     ],
