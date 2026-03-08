@@ -124,15 +124,18 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
+    # Extract model info early so we don't depend on lazy-loaded ORM state later
+    model_id_val = model.id
+    model_name = model.name
+    model_icon_key = model.icon_key or ""
+    model_provider = model.provider
+
     llm_max, human_max = await _get_score_scales(db)
 
-    # Get all tasks with their dimensions
-    tasks_result = await db.execute(
-        select(Task).options(selectinload(Task.dimension)).order_by(Task.created_at.desc())
-    )
-    all_tasks = tasks_result.scalars().all()
-
-    # Get all assignments for this model (with scores; degrade gracefully if schema is stale)
+    # Get all assignments for this model (with runs and scores).
+    # This is done BEFORE loading tasks so that if a rollback is needed
+    # (e.g. due to schema mismatch on scores), it won't expire the task
+    # objects we need later.
     scores_available = True
     try:
         assignments_result = await db.execute(
@@ -145,17 +148,32 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
         assignments = {a.task_id: a for a in assignments_result.scalars().all()}
     except Exception:
         logger.warning(
-            "model-eval %s: failed to load scores (possible schema mismatch), falling back to runs-only",
+            "model-eval %s: failed to load assignments with scores, falling back to runs-only",
             model_id, exc_info=True,
         )
         scores_available = False
         await db.rollback()
-        assignments_result = await db.execute(
-            select(TaskModelAssignment)
-            .where(TaskModelAssignment.model_id == model_id)
-            .options(selectinload(TaskModelAssignment.runs))
+        try:
+            assignments_result = await db.execute(
+                select(TaskModelAssignment)
+                .where(TaskModelAssignment.model_id == model_id)
+                .options(selectinload(TaskModelAssignment.runs))
+            )
+            assignments = {a.task_id: a for a in assignments_result.scalars().all()}
+        except Exception:
+            logger.error("model-eval %s: fallback query also failed", model_id, exc_info=True)
+            assignments = {}
+
+    # Load tasks AFTER the assignments block so a potential rollback above
+    # cannot expire these objects and cause MissingGreenlet errors.
+    try:
+        tasks_result = await db.execute(
+            select(Task).options(selectinload(Task.dimension)).order_by(Task.created_at.desc())
         )
-        assignments = {a.task_id: a for a in assignments_result.scalars().all()}
+        all_tasks = tasks_result.scalars().all()
+    except Exception:
+        logger.error("model-eval %s: failed to load tasks", model_id, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load evaluation tasks")
 
     task_results: list[ModelTaskResult] = []
     dimension_scores: dict[str, list[float]] = {}
@@ -224,10 +242,10 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
     overall_avg = round(sum(all_scores) / len(all_scores), 2) if all_scores else None
 
     return ModelEvalSummary(
-        model_id=model.id,
-        model_name=model.name,
-        model_icon_key=model.icon_key or "",
-        provider=model.provider,
+        model_id=model_id_val,
+        model_name=model_name,
+        model_icon_key=model_icon_key,
+        provider=model_provider,
         tasks=task_results,
         dimension_averages=dimension_averages,
         overall_avg=overall_avg,
