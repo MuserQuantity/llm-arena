@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 
 function scoreBg(score: number | null | undefined): string {
   if (score == null) return "";
-  if (score >= 8) return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
-  if (score >= 6) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
-  if (score >= 4) return "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300";
+  if (score >= 80) return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
+  if (score >= 60) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300";
+  if (score >= 40) return "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300";
   return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
 }
 

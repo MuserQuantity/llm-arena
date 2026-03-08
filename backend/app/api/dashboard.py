@@ -16,7 +16,7 @@ async def _get_score_scales(db: AsyncSession) -> tuple[int, int]:
         select(SystemSetting).where(SystemSetting.key.in_(["score_scale_max", "human_score_scale_max"]))
     )
     settings_map = {s.key: s.value for s in result.scalars().all()}
-    return int(settings_map.get("score_scale_max", "10")), int(settings_map.get("human_score_scale_max", "5"))
+    return max(1, int(settings_map.get("score_scale_max", "10"))), max(1, int(settings_map.get("human_score_scale_max", "5")))
 
 
 @router.get("/leaderboard", response_model=list[LeaderboardEntry])

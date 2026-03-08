@@ -14,8 +14,8 @@ import { ModelIcon } from "@/components/layout/model-icon";
 import { LeaderboardEntryResponse } from "@/lib/api";
 
 function getScoreBgColor(score: number): string {
-  if (score >= 8) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
-  if (score >= 5) return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300";
+  if (score >= 80) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+  if (score >= 50) return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300";
   return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
 }
 

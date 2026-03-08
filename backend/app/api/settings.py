@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +57,13 @@ async def update_settings(data: SettingsBulkUpdate, db: AsyncSession = Depends(g
     await _ensure_defaults(db)
     updated = []
     for key, value in data.settings.items():
+        if key in ("score_scale_max", "human_score_scale_max"):
+            try:
+                v = int(value)
+                if v <= 0:
+                    raise HTTPException(status_code=400, detail=f"{key} must be a positive integer")
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"{key} must be a valid integer")
         result = await db.execute(select(SystemSetting).where(SystemSetting.key == key))
         setting = result.scalar_one_or_none()
         if setting:
