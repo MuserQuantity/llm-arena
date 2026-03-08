@@ -51,7 +51,8 @@ export default function SettingsPage() {
   };
 
   const activeModels = models.filter(m => m.status === "active");
-  const selectedModelName = models.find(m => m.id === judgeModelId)?.name || "未设置";
+  const selectedModel = models.find(m => m.id === judgeModelId);
+  const selectedModelName = selectedModel?.name || "未设置";
 
   if (loading) return <><Topbar title="系统设置" /><main className="p-8"><div className="text-center py-20 text-muted-foreground">加载设置中...</div></main></>;
 
@@ -70,7 +71,13 @@ export default function SettingsPage() {
             <h2 className="text-lg font-bold mb-4">Judge 模型</h2>
             <p className="text-sm text-muted-foreground mb-4">选择默认的 LLM Judge 模型，用于自动评估其他模型的输出。各任务可单独覆盖此设置。建议选择能力最强的模型作为 Judge。</p>
             <Select value={judgeModelId} onValueChange={v => setJudgeModelId(v ?? '')}>
-              <SelectTrigger className="w-full max-w-md"><SelectValue placeholder="选择 Judge 模型" /></SelectTrigger>
+              <SelectTrigger className="w-full max-w-md">
+                {selectedModel ? (
+                  <span className="flex flex-1 text-left truncate">{selectedModel.name} ({selectedModel.provider})</span>
+                ) : (
+                  <span className="flex flex-1 text-left truncate text-muted-foreground">选择 Judge 模型</span>
+                )}
+              </SelectTrigger>
               <SelectContent>
                 {activeModels.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.provider})</SelectItem>)}
               </SelectContent>
