@@ -54,7 +54,9 @@ class Task(Base, TimestampMixin):
     prompt: Mapped[str] = mapped_column(Text, default="")
     yaml_config: Mapped[str] = mapped_column(Text, default="")
     eval_mode: Mapped[str] = mapped_column(String(50), default="llm_judge")  # script_only | llm_judge | both
-    judge_model_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("models.id"), nullable=True)
+    judge_model_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("models.id", ondelete="SET NULL"), nullable=True
+    )
     judge_rubric: Mapped[str] = mapped_column(Text, default="")
     expected_output_type: Mapped[str] = mapped_column(String(50), default="text")  # text | code | html | json
 
@@ -114,7 +116,9 @@ class Score(Base, TimestampMixin):
     pass_fail: Mapped[str | None] = mapped_column(String(10), nullable=True)
     rationale: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
-    scorer_model_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("models.id"), nullable=True)
+    scorer_model_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("models.id", ondelete="SET NULL"), nullable=True
+    )
     dimension_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("dimensions.id"), nullable=True)
 
     run: Mapped["Run"] = relationship(back_populates="scores")
