@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.models import Task, TaskModelAssignment
+from app.models.models import Run, Score, Task, TaskModelAssignment
 from app.schemas.schemas import AssignmentCreate, AssignmentResponse, TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -51,12 +51,38 @@ async def update_task(task_id: str, data: TaskUpdate, db: AsyncSession = Depends
     return task
 
 
+@router.delete("/{task_id}", status_code=204)
+async def delete_task(task_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Task).where(Task.id == task_id)
+        .options(
+            selectinload(Task.model_assignments)
+            .selectinload(TaskModelAssignment.runs)
+            .selectinload(Run.scores)
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    await db.delete(task)
+
+
 @router.post("/{task_id}/assignments", response_model=AssignmentResponse, status_code=201)
 async def create_assignment(task_id: str, data: AssignmentCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Check for existing assignment to prevent duplicates
+    existing = await db.execute(
+        select(TaskModelAssignment).where(
+            TaskModelAssignment.task_id == task_id,
+            TaskModelAssignment.model_id == data.model_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Assignment already exists")
 
     assignment = TaskModelAssignment(task_id=task_id, model_id=data.model_id, override_params=data.override_params)
     db.add(assignment)

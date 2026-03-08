@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.models import Run, Task, TaskModelAssignment
+from app.models.models import Run, Score, Task, TaskModelAssignment
 from app.schemas.schemas import RunResponse
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -90,11 +90,12 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", status_code=201)
-async def create_runs(task_id: str, db: AsyncSession = Depends(get_db)):
-    """Create runs for all model assignments of a task."""
-    result = await db.execute(
-        select(TaskModelAssignment).where(TaskModelAssignment.task_id == task_id)
-    )
+async def create_runs(task_id: str, model_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    """Create runs for model assignments of a task. If model_id is provided, only create for that model."""
+    query = select(TaskModelAssignment).where(TaskModelAssignment.task_id == task_id)
+    if model_id:
+        query = query.where(TaskModelAssignment.model_id == model_id)
+    result = await db.execute(query)
     assignments = result.scalars().all()
     if not assignments:
         raise HTTPException(status_code=400, detail="No model assignments found for this task")
@@ -124,6 +125,13 @@ async def retry_run(run_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Run not found")
     if run.status not in ("failed", "done"):
         raise HTTPException(status_code=400, detail="Can only retry failed or completed runs")
+
+    # Clear stale scores before resetting the run
+    score_result = await db.execute(
+        select(Score).where(Score.run_id == run_id)
+    )
+    for old_score in score_result.scalars().all():
+        await db.delete(old_score)
 
     run.status = "pending"
     run.output = ""

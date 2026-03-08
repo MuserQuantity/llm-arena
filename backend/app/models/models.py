@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
@@ -25,7 +25,9 @@ class LLMModel(Base, TimestampMixin):
     adapter_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active")
 
-    task_assignments: Mapped[list["TaskModelAssignment"]] = relationship(back_populates="model")
+    task_assignments: Mapped[list["TaskModelAssignment"]] = relationship(
+        back_populates="model", cascade="all, delete-orphan"
+    )
 
 
 class Dimension(Base, TimestampMixin):
@@ -52,19 +54,24 @@ class Task(Base, TimestampMixin):
     prompt: Mapped[str] = mapped_column(Text, default="")
     yaml_config: Mapped[str] = mapped_column(Text, default="")
     eval_mode: Mapped[str] = mapped_column(String(50), default="llm_judge")  # script_only | llm_judge | both
-    judge_model_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("models.id"), nullable=True)
+    judge_model_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("models.id", ondelete="SET NULL"), nullable=True
+    )
     judge_rubric: Mapped[str] = mapped_column(Text, default="")
     expected_output_type: Mapped[str] = mapped_column(String(50), default="text")  # text | code | html | json
 
     dimension: Mapped["Dimension"] = relationship(back_populates="tasks")
     judge_model: Mapped["LLMModel | None"] = relationship(foreign_keys=[judge_model_id])
-    model_assignments: Mapped[list["TaskModelAssignment"]] = relationship(back_populates="task")
+    model_assignments: Mapped[list["TaskModelAssignment"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
 
 
 class TaskModelAssignment(Base, TimestampMixin):
     """Links a task to a model with optional param overrides."""
 
     __tablename__ = "task_model_assignments"
+    __table_args__ = (UniqueConstraint("task_id", "model_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id"), nullable=False)
@@ -73,7 +80,7 @@ class TaskModelAssignment(Base, TimestampMixin):
 
     task: Mapped["Task"] = relationship(back_populates="model_assignments")
     model: Mapped["LLMModel"] = relationship(back_populates="task_assignments")
-    runs: Mapped[list["Run"]] = relationship(back_populates="task_assignment")
+    runs: Mapped[list["Run"]] = relationship(back_populates="task_assignment", cascade="all, delete-orphan")
 
 
 class Run(Base, TimestampMixin):
@@ -94,7 +101,7 @@ class Run(Base, TimestampMixin):
     error_message: Mapped[str] = mapped_column(Text, default="")
 
     task_assignment: Mapped["TaskModelAssignment"] = relationship(back_populates="runs")
-    scores: Mapped[list["Score"]] = relationship(back_populates="run")
+    scores: Mapped[list["Score"]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
 
 class Score(Base, TimestampMixin):
@@ -109,7 +116,23 @@ class Score(Base, TimestampMixin):
     pass_fail: Mapped[str | None] = mapped_column(String(10), nullable=True)
     rationale: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
-    scorer_model_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("models.id"), nullable=True)
+    scorer_model_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("models.id", ondelete="SET NULL"), nullable=True
+    )
+    dimension_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("dimensions.id"), nullable=True)
 
     run: Mapped["Run"] = relationship(back_populates="scores")
     scorer_model: Mapped["LLMModel | None"] = relationship(foreign_keys=[scorer_model_id])
+    dimension: Mapped["Dimension | None"] = relationship(foreign_keys=[dimension_id])
+
+
+class SystemSetting(Base, TimestampMixin):
+    """System-wide settings (key-value store)."""
+
+    __tablename__ = "system_settings"
+    __table_args__ = (UniqueConstraint("key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str] = mapped_column(Text, default="")
+    description: Mapped[str] = mapped_column(Text, default="")

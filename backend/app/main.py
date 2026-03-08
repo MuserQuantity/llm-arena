@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, dashboard, dimensions, models, runs, scores, tasks
+from app.api import auth, dashboard, dimensions, judge, models, runs, scores, settings, tasks
 from app.api.auth import get_current_user
-from app.config import settings
+from app.config import settings as app_settings
 from app.database import engine
 from app.models.base import Base
 
@@ -29,7 +29,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=app_settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,3 +51,5 @@ app.include_router(tasks.router, dependencies=[Depends(get_current_user)])
 app.include_router(runs.router, dependencies=[Depends(get_current_user)])
 app.include_router(scores.router, dependencies=[Depends(get_current_user)])
 app.include_router(dashboard.router, dependencies=[Depends(get_current_user)])
+app.include_router(settings.router, dependencies=[Depends(get_current_user)])
+app.include_router(judge.router, dependencies=[Depends(get_current_user)])
