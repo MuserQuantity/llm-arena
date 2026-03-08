@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.models import Run, Score, Task, TaskModelAssignment
 from app.schemas.schemas import RunResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
@@ -157,6 +160,8 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
     from app.database import async_session
     from app.utils.url_validation import validate_api_url
 
+    logger.info("[Run %s] Starting execution", run_id)
+
     result = await db.execute(
         select(Run)
         .where(Run.id == run_id)
@@ -167,11 +172,17 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
     )
     run = result.scalar_one_or_none()
     if not run:
+        logger.warning("[Run %s] Not found", run_id)
         raise HTTPException(status_code=404, detail="Run not found")
 
     assignment = run.task_assignment
     task = assignment.task
     model = assignment.model
+
+    logger.info(
+        "[Run %s] Task=%s Model=%s(%s)",
+        run_id, task.title, model.name, model.model_id,
+    )
 
     # Use model-specific API or global API
     api_base = model.api_base or settings.llm_api_base_url
@@ -193,6 +204,8 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
     run.started_at = datetime.now(timezone.utc)
     await db.flush()
     await db.commit()
+
+    logger.info("[Run %s] Status → running, calling LLM API at %s", run_id, api_base)
 
     # --- DB session is now released; make the LLM API call ---
     llm_status = "done"
@@ -226,10 +239,15 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
 
             llm_output = data["choices"][0]["message"]["content"]
             llm_status = "done"
+            logger.info(
+                "[Run %s] LLM API responded OK, output length=%d chars",
+                run_id, len(llm_output),
+            )
 
     except Exception as e:
         llm_status = "failed"
         llm_error = str(e)
+        logger.error("[Run %s] LLM API call failed: %s", run_id, llm_error)
 
     # --- Acquire a new DB session to write results ---
     completed_at = datetime.now(timezone.utc)
@@ -249,6 +267,11 @@ async def execute_run(run_id: str, db: AsyncSession = Depends(get_db)):
             await write_session.commit()
         except Exception:
             await write_session.rollback()
+            logger.exception("[Run %s] Failed to write results to DB", run_id)
             raise
 
-    return {"status": llm_status, "run_id": run_id}
+    logger.info(
+        "[Run %s] Execution finished: status=%s duration=%sms",
+        run_id, llm_status, duration_ms,
+    )
+    return {"status": llm_status, "run_id": run_id, "duration_ms": duration_ms, "error": llm_error or None}

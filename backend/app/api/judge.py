@@ -1,5 +1,7 @@
 """LLM Judge auto-scoring: calls a judge model to score a run's output."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +10,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.models import LLMModel, Run, Score, SystemSetting, Task, TaskModelAssignment
 from app.schemas.schemas import ScoreResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/judge", tags=["judge"])
 
@@ -20,6 +24,8 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
     from app.config import settings as app_settings
     from app.database import async_session
     from app.utils.url_validation import validate_api_url
+
+    logger.info("[Judge %s] Starting LLM judge scoring", run_id)
 
     # Load run with relationships
     result = await db.execute(
@@ -59,7 +65,10 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
     judge_result = await db.execute(select(LLMModel).where(LLMModel.id == judge_model_id))
     judge_model = judge_result.scalar_one_or_none()
     if not judge_model:
+        logger.error("[Judge %s] Judge model %s not found", run_id, judge_model_id)
         raise HTTPException(status_code=400, detail="Judge model not found")
+
+    logger.info("[Judge %s] Using judge model: %s (%s)", run_id, judge_model.name, judge_model.model_id)
 
     # Get rubric: task-specific > global setting
     rubric = task.judge_rubric
@@ -104,6 +113,8 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
     # Release DB and call LLM
     await db.commit()
 
+    logger.info("[Judge %s] Calling judge LLM API at %s", run_id, api_base)
+
     score_value = None
     rationale = ""
     error = ""
@@ -127,9 +138,11 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
 
             # Parse score and rationale
             score_value, rationale = _parse_judge_response(response_text, score_max)
+            logger.info("[Judge %s] Judge responded: score=%s", run_id, score_value)
 
     except Exception as e:
         error = str(e)
+        logger.error("[Judge %s] Judge API call failed: %s", run_id, error)
 
     # Save score in new session
     async with async_session() as write_session:
@@ -156,12 +169,14 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
             await write_session.flush()
             await write_session.refresh(score)
             await write_session.commit()
+            logger.info("[Judge %s] Score saved: id=%s score=%s", run_id, score.id, score_value)
             return score
         except HTTPException:
             await write_session.rollback()
             raise
         except Exception:
             await write_session.rollback()
+            logger.exception("[Judge %s] Failed to save score to DB", run_id)
             raise
 
 

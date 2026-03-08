@@ -23,13 +23,20 @@ async def _run_migrations(conn) -> None:  # type: ignore[no-untyped-def]
     if insp.has_table("scores"):
         cols = {c["name"] for c in insp.get_columns("scores")}
         if "dimension_id" not in cols:
-            logger.info("Migration: adding scores.dimension_id column")
-            conn.execute(
-                text(
-                    "ALTER TABLE scores ADD COLUMN dimension_id VARCHAR(36) "
-                    "REFERENCES dimensions(id)"
+            try:
+                logger.info("Migration: adding scores.dimension_id column ...")
+                conn.execute(
+                    text(
+                        "ALTER TABLE scores ADD COLUMN dimension_id VARCHAR(36) "
+                        "REFERENCES dimensions(id)"
+                    )
                 )
-            )
+                logger.info("Migration: scores.dimension_id added successfully")
+            except Exception:
+                logger.exception("Migration FAILED: could not add scores.dimension_id")
+                raise
+        else:
+            logger.info("Migration: scores.dimension_id already exists, skipping")
 
     # --- task_model_assignments unique constraint ------------------------------
     if insp.has_table("task_model_assignments"):
@@ -38,26 +45,33 @@ async def _run_migrations(conn) -> None:  # type: ignore[no-untyped-def]
             set(uq["column_names"]) == {"task_id", "model_id"} for uq in uqs
         )
         if not has_uq:
-            logger.info(
-                "Migration: adding unique constraint on "
-                "task_model_assignments(task_id, model_id)"
-            )
-            conn.execute(
-                text(
-                    "ALTER TABLE task_model_assignments "
-                    "ADD CONSTRAINT uq_task_model_assignments_task_id_model_id "
-                    "UNIQUE (task_id, model_id)"
+            try:
+                logger.info(
+                    "Migration: adding unique constraint on "
+                    "task_model_assignments(task_id, model_id) ..."
                 )
-            )
+                conn.execute(
+                    text(
+                        "ALTER TABLE task_model_assignments "
+                        "ADD CONSTRAINT uq_task_model_assignments_task_id_model_id "
+                        "UNIQUE (task_id, model_id)"
+                    )
+                )
+                logger.info("Migration: unique constraint added successfully")
+            except Exception:
+                logger.exception("Migration FAILED: could not add unique constraint")
+                raise
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Create tables on startup
+    logger.info("=== LLM Arena backend starting ===")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Apply incremental migrations for columns added after initial schema
+        logger.info("Database tables ensured via create_all")
         await conn.run_sync(_run_migrations)
+        logger.info("Incremental migrations complete")
+    logger.info("=== LLM Arena backend ready ===")
     yield
 
 
