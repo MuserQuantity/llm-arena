@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def _run_migrations(conn) -> None:  # type: ignore[no-untyped-def]
+def _run_migrations(conn) -> None:  # type: ignore[no-untyped-def]
     """Add columns / constraints that create_all cannot add to existing tables."""
     insp = inspect(conn)
 
