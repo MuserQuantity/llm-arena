@@ -8,7 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { apiDashboard, apiTasks, apiRuns, apiJudge, ModelEvalSummaryResponse, ModelTaskResultResponse } from "@/lib/api";
+import { apiDashboard, apiTasks, apiRuns, apiJudge, apiSettings, ModelEvalSummaryResponse, ModelTaskResultResponse, SettingResponse } from "@/lib/api";
 import { Play, RefreshCw, Eye, BarChart3, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -19,6 +19,8 @@ export default function ModelEvalPage() {
   const [loading, setLoading] = useState(true);
   const [executingTask, setExecutingTask] = useState<string | null>(null);
   const [judgingRun, setJudgingRun] = useState<string | null>(null);
+  const [llmMax, setLlmMax] = useState(10);
+  const [humanMax, setHumanMax] = useState(5);
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +30,15 @@ export default function ModelEvalPage() {
   }, [modelId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    apiSettings.list().then((settings: SettingResponse[]) => {
+      for (const s of settings) {
+        if (s.key === "score_scale_max") setLlmMax(parseInt(s.value, 10) || 10);
+        if (s.key === "human_score_scale_max") setHumanMax(parseInt(s.value, 10) || 5);
+      }
+    }).catch(() => {});
+  }, []);
 
   const executeTask = async (taskId: string) => {
     setExecutingTask(taskId);
@@ -97,8 +108,8 @@ export default function ModelEvalPage() {
                 <TableRow>
                   <TableHead>Task</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>LLM Score</TableHead>
-                  <TableHead>Human Score</TableHead>
+                  <TableHead>LLM Score (/{llmMax})</TableHead>
+                  <TableHead>Human Score (/{humanMax})</TableHead>
                   <TableHead className="w-40">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -118,8 +129,8 @@ export default function ModelEvalPage() {
                         <span className="text-xs text-muted-foreground">Not run</span>
                       )}
                     </TableCell>
-                    <TableCell>{task.llm_score !== null ? <span className="font-bold">{task.llm_score.toFixed(1)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>{task.human_score !== null ? <span className="font-bold">{task.human_score.toFixed(1)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{task.llm_score !== null ? <span className="font-bold">{task.llm_score.toFixed(1)}<span className="text-muted-foreground font-normal text-xs"> / {llmMax}</span></span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{task.human_score !== null ? <span className="font-bold">{task.human_score.toFixed(1)}<span className="text-muted-foreground font-normal text-xs"> / {humanMax}</span></span> : <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" onClick={() => executeTask(task.task_id)} disabled={executingTask === task.task_id} title={task.run_id ? "Re-execute" : "Execute"}>

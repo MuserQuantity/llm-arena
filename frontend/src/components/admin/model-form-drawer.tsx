@@ -77,9 +77,9 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
 
   const toggle = (cap: string) => setCapabilities(p => p.includes(cap) ? p.filter(c => c !== cap) : [...p, cap]);
 
-  const pj = (s: string): Record<string, unknown> | null => {
-    if (!s || s.trim() === "" || s.trim() === "{}") return s.trim() === "{}" ? {} : null;
-    try { const v = JSON.parse(s); return typeof v === "object" && v !== null ? v : null; } catch { return undefined as never; }
+  const pj = (s: string): Record<string, unknown> | undefined => {
+    if (!s || s.trim() === "" || s.trim() === "{}") return s.trim() === "{}" ? {} : undefined;
+    try { const v = JSON.parse(s); return typeof v === "object" && v !== null ? v : undefined; } catch { return undefined; }
   };
 
   const validateJson = (s: string, label: string): string | null => {
@@ -105,7 +105,8 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
         api_base: apiBase, ...(apiKey ? { api_key: apiKey } : {}),
         capabilities, status,
         default_params: pj(defaultParams), fixed_params: pj(fixedParams),
-        adapter_config: pj(adapterConfig), custom_headers: pj(customHeaders),
+        adapter_config: pj(adapterConfig),
+        custom_headers: pj(customHeaders) as Record<string, string> | undefined,
       };
       if (isEdit && editModel) await apiModels.update(editModel.id, payload);
       else await apiModels.create(payload);

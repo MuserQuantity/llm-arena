@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ModelIcon } from "@/components/layout/model-icon";
-import { apiScores, apiJudge, ScoreResponse, RunResponse } from "@/lib/api";
+import { apiScores, apiJudge, apiSettings, ScoreResponse, RunResponse, SettingResponse } from "@/lib/api";
 import { Star, Edit3, Save, X, BarChart3, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
 function getStatusConfig(status: string) {
   switch (status) {
@@ -27,6 +28,17 @@ export function ResultDetail({ run, scores, onScoresUpdate }: ResultDetailProps)
   const judgeScore = scores.find(s => s.score_type === "llm_judge");
   const manualScore = scores.find(s => s.score_type === "manual");
   const [judging, setJudging] = useState(false);
+  const [llmMax, setLlmMax] = useState(10);
+  const [humanMax, setHumanMax] = useState(5);
+
+  useEffect(() => {
+    apiSettings.list().then((settings: SettingResponse[]) => {
+      for (const s of settings) {
+        if (s.key === "score_scale_max") setLlmMax(parseInt(s.value, 10) || 10);
+        if (s.key === "human_score_scale_max") setHumanMax(parseInt(s.value, 10) || 5);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleJudge = async () => {
     setJudging(true);
@@ -61,8 +73,13 @@ export function ResultDetail({ run, scores, onScoresUpdate }: ResultDetailProps)
             {judging ? "Judging..." : "Run LLM Judge"}
           </Button>
         )}
-        {judgeScore && <JudgeScoreCard score={judgeScore} />}
-        <ManualScoreCard runId={run.id} score={manualScore} onSaved={onScoresUpdate} />
+        {judgeScore && <JudgeScoreCard score={judgeScore} maxScore={llmMax} />}
+        <ManualScoreCard runId={run.id} score={manualScore} maxScore={humanMax} onSaved={onScoresUpdate} />
+
+        {/* Score Composition */}
+        {(judgeScore || manualScore) && (
+          <ScoreComposition judgeScore={judgeScore} manualScore={manualScore} llmMax={llmMax} humanMax={humanMax} />
+        )}
       </div>
     </div>
   );
@@ -92,19 +109,32 @@ function OutputRenderer({ output, outputType }: { output?: string; outputType?: 
   </div>);
 }
 
-function JudgeScoreCard({ score }: { score: ScoreResponse }) {
+function ScoreBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = Math.min((value / max) * 100, 100);
   return (
-    <div className="border border-border rounded-xl p-4 border-l-4 border-l-blue-500">
-      <div className="text-xs font-semibold text-muted-foreground mb-2 tracking-wide">LLM Judge Score</div>
-      <div className="text-2xl font-extrabold mb-1">
-        {score.numeric_score?.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
-      </div>
-      {score.rationale && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">&ldquo;{score.rationale}&rdquo;</p>}
+    <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: ScoreResponse; onSaved?: () => void }) {
+function JudgeScoreCard({ score, maxScore }: { score: ScoreResponse; maxScore: number }) {
+  const pct = score.numeric_score != null ? Math.round((score.numeric_score / maxScore) * 100) : 0;
+  return (
+    <div className="border border-border rounded-xl p-4 border-l-4 border-l-blue-500">
+      <div className="text-xs font-semibold text-muted-foreground mb-2 tracking-wide">LLM Judge Score</div>
+      <div className="flex items-end gap-2 mb-2">
+        <span className="text-2xl font-extrabold">{score.numeric_score?.toFixed(1)}</span>
+        <span className="text-sm font-normal text-muted-foreground mb-0.5">/ {maxScore}</span>
+        <span className="ml-auto text-xs font-semibold text-blue-600">{pct}%</span>
+      </div>
+      <ScoreBar value={score.numeric_score ?? 0} max={maxScore} color="bg-blue-500" />
+      {score.rationale && <p className="text-xs text-muted-foreground mt-3 whitespace-pre-line">&ldquo;{score.rationale}&rdquo;</p>}
+    </div>
+  );
+}
+
+function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; score?: ScoreResponse; maxScore: number; onSaved?: () => void }) {
   const [editing, setEditing] = useState(false);
   const [stars, setStars] = useState(score?.numeric_score ?? 0);
   const [hoverStars, setHoverStars] = useState(0);
@@ -112,6 +142,7 @@ function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: Sco
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const displayStars = hoverStars || stars;
+  const useStars = maxScore <= 10;
 
   const handleSave = async () => {
     if (stars <= 0) return;
@@ -128,6 +159,8 @@ function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: Sco
     } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
+  const pct = stars > 0 ? Math.round((stars / maxScore) * 100) : 0;
+
   return (
     <div className="border border-border rounded-xl p-4 border-l-4 border-l-orange-500">
       <div className="flex items-center justify-between mb-2">
@@ -139,26 +172,100 @@ function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: Sco
       </div>
       {!editing ? (
         <div>
-          <div className="text-2xl font-extrabold mb-1">
-            {Array.from({ length: 5 }, (_, i) => <Star key={i} className={`w-5 h-5 inline ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} />)}
-            <span className="ml-2 text-lg">{stars}/5</span>
+          <div className="flex items-end gap-2 mb-2">
+            {useStars ? (
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: maxScore }, (_, i) => <Star key={i} className={`w-5 h-5 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} />)}
+              </div>
+            ) : (
+              <span className="text-2xl font-extrabold">{stars > 0 ? stars.toFixed(1) : "\u2014"}</span>
+            )}
+            <span className="text-sm text-muted-foreground mb-0.5">{stars > 0 ? `${stars}/${maxScore}` : `\u2014/${maxScore}`}</span>
+            {stars > 0 && <span className="ml-auto text-xs font-semibold text-orange-600">{pct}%</span>}
           </div>
-          {notes && <p className="text-xs text-muted-foreground mt-1">{notes}</p>}
+          {stars > 0 && <ScoreBar value={stars} max={maxScore} color="bg-orange-500" />}
+          {notes && <p className="text-xs text-muted-foreground mt-2">{notes}</p>}
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex gap-1">
-            {Array.from({ length: 5 }, (_, i) => (
-              <button key={i} onMouseEnter={() => setHoverStars(i + 1)} onMouseLeave={() => setHoverStars(0)} onClick={() => setStars(i + 1)}>
-                <Star className={`w-6 h-6 transition-colors ${i < displayStars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} />
-              </button>
-            ))}
-          </div>
+          {useStars ? (
+            <div className="flex gap-1">
+              {Array.from({ length: maxScore }, (_, i) => (
+                <button key={i} onMouseEnter={() => setHoverStars(i + 1)} onMouseLeave={() => setHoverStars(0)} onClick={() => setStars(i + 1)}>
+                  <Star className={`w-6 h-6 transition-colors ${i < displayStars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"}`} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Score (1 - {maxScore})</label>
+              <Input
+                type="number"
+                min={1}
+                max={maxScore}
+                step={1}
+                value={stars > 0 ? stars : ""}
+                onChange={e => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v) && v >= 0 && v <= maxScore) setStars(v);
+                  else if (e.target.value === "") setStars(0);
+                }}
+                placeholder={`Enter score (1-${maxScore})`}
+                className="h-10"
+              />
+            </div>
+          )}
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add notes..." className="text-sm" rows={2} />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} disabled={saving || stars <= 0}><Save className="w-3 h-3 mr-1" /> {saving ? "Saving..." : "Save Score"}</Button>
             <Button size="sm" variant="outline" onClick={() => setEditing(false)}><X className="w-3 h-3 mr-1" /> Cancel</Button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreComposition({ judgeScore, manualScore, llmMax, humanMax }: {
+  judgeScore?: ScoreResponse;
+  manualScore?: ScoreResponse;
+  llmMax: number;
+  humanMax: number;
+}) {
+  const llmVal = judgeScore?.numeric_score;
+  const humanVal = manualScore?.numeric_score;
+  const llmPct = llmVal != null ? (llmVal / llmMax) * 100 : null;
+  const humanPct = humanVal != null ? (humanVal / humanMax) * 100 : null;
+
+  const items: { label: string; score: number; max: number; pct: number; color: string }[] = [];
+  if (llmVal != null) items.push({ label: "LLM Judge", score: llmVal, max: llmMax, pct: llmPct!, color: "bg-blue-500" });
+  if (humanVal != null) items.push({ label: "Human", score: humanVal, max: humanMax, pct: humanPct!, color: "bg-orange-500" });
+
+  if (items.length === 0) return null;
+
+  const avgPct = items.reduce((sum, i) => sum + i.pct, 0) / items.length;
+
+  return (
+    <div className="border border-border rounded-xl p-4">
+      <div className="text-xs font-semibold text-muted-foreground mb-3 tracking-wide">Score Composition</div>
+      <div className="space-y-3">
+        {items.map(item => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-medium">{item.label}</span>
+              <span className="text-muted-foreground">{item.score.toFixed(1)} / {item.max} ({Math.round(item.pct)}%)</span>
+            </div>
+            <ScoreBar value={item.score} max={item.max} color={item.color} />
+          </div>
+        ))}
+      </div>
+      {items.length > 1 && (
+        <div className="mt-4 pt-3 border-t border-border">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-semibold">Normalized Average</span>
+            <span className="font-bold text-foreground">{Math.round(avgPct)}%</span>
+          </div>
+          <ScoreBar value={avgPct} max={100} color="bg-green-500" />
         </div>
       )}
     </div>
