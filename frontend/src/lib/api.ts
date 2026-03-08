@@ -98,7 +98,11 @@ export const apiRuns = {
     return apiFetch<RunResponse[]>(`/api/runs${qs ? `?${qs}` : ""}`);
   },
   get: (id: string) => apiFetch<RunResponse>(`/api/runs/${id}`),
-  createForTask: (taskId: string) => apiFetch<{ created: number; run_ids: string[] }>(`/api/runs?task_id=${encodeURIComponent(taskId)}`, { method: "POST" }),
+  createForTask: (taskId: string, modelId?: string) => {
+    const params = new URLSearchParams({ task_id: taskId });
+    if (modelId) params.set("model_id", modelId);
+    return apiFetch<{ created: number; run_ids: string[] }>(`/api/runs?${params.toString()}`, { method: "POST" });
+  },
   retry: (id: string) => apiFetch<RunResponse>(`/api/runs/${id}/retry`, { method: "POST" }),
   execute: (id: string) => apiFetch<{ status: string; run_id: string }>(`/api/runs/${id}/execute`, { method: "POST" }),
 };

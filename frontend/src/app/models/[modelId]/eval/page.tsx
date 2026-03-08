@@ -32,11 +32,11 @@ export default function ModelEvalPage() {
   const executeTask = async (taskId: string) => {
     setExecutingTask(taskId);
     try {
-      // Create assignment if needed, then create runs for the task
+      // Create assignment if needed, then create a run only for this model
       try { await apiTasks.createAssignment(taskId, { model_id: modelId }); } catch { /* assignment may already exist */ }
-      const result = await apiRuns.createForTask(taskId);
+      const result = await apiRuns.createForTask(taskId, modelId);
       if (result.run_ids.length > 0) {
-        // Execute the first run
+        // Execute the run for this model
         await apiRuns.execute(result.run_ids[0]);
       }
       // Wait a moment then reload

@@ -90,11 +90,12 @@ async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", status_code=201)
-async def create_runs(task_id: str, db: AsyncSession = Depends(get_db)):
-    """Create runs for all model assignments of a task."""
-    result = await db.execute(
-        select(TaskModelAssignment).where(TaskModelAssignment.task_id == task_id)
-    )
+async def create_runs(task_id: str, model_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    """Create runs for model assignments of a task. If model_id is provided, only create for that model."""
+    query = select(TaskModelAssignment).where(TaskModelAssignment.task_id == task_id)
+    if model_id:
+        query = query.where(TaskModelAssignment.model_id == model_id)
+    result = await db.execute(query)
     assignments = result.scalars().all()
     if not assignments:
         raise HTTPException(status_code=400, detail="No model assignments found for this task")
