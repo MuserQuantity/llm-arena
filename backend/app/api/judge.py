@@ -76,7 +76,7 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
         select(SystemSetting).where(SystemSetting.key == "score_scale_max")
     )
     scale_setting = scale_result.scalar_one_or_none()
-    score_max = int(scale_setting.value) if scale_setting and scale_setting.value else 10
+    score_max = max(1, int(scale_setting.value)) if scale_setting and scale_setting.value else 10
 
     # Build the judge prompt
     judge_prompt = (
