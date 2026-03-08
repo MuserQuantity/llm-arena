@@ -51,6 +51,15 @@ async def update_task(task_id: str, data: TaskUpdate, db: AsyncSession = Depends
     return task
 
 
+@router.delete("/{task_id}", status_code=204)
+async def delete_task(task_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    await db.delete(task)
+
+
 @router.post("/{task_id}/assignments", response_model=AssignmentResponse, status_code=201)
 async def create_assignment(task_id: str, data: AssignmentCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Task).where(Task.id == task_id))

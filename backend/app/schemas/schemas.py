@@ -165,6 +165,7 @@ class ScoreCreate(BaseModel):
     rationale: str = ""
     notes: str = ""
     scorer_model_id: str | None = None
+    dimension_id: str | None = None
 
 
 class ScoreUpdate(BaseModel):
@@ -183,10 +184,31 @@ class ScoreResponse(BaseModel):
     rationale: str
     notes: str
     scorer_model_id: str | None = None
+    dimension_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Settings Schemas ──
+class SettingUpdate(BaseModel):
+    value: str
+
+
+class SettingResponse(BaseModel):
+    id: str
+    key: str
+    value: str
+    description: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SettingsBulkUpdate(BaseModel):
+    settings: dict[str, str]  # key -> value
 
 
 # ── Dashboard Schemas ──
@@ -199,3 +221,26 @@ class LeaderboardEntry(BaseModel):
     total_runs: int
     top_score: float
     last_updated: datetime | None = None
+
+
+class ModelTaskResult(BaseModel):
+    task_id: str
+    task_title: str
+    dimension_id: str
+    dimension_name: str
+    run_id: str | None = None
+    run_status: str | None = None
+    llm_score: float | None = None
+    human_score: float | None = None
+    llm_rationale: str | None = None
+    human_notes: str | None = None
+
+
+class ModelEvalSummary(BaseModel):
+    model_id: str
+    model_name: str
+    model_icon_key: str
+    provider: str
+    tasks: list[ModelTaskResult]
+    dimension_averages: dict[str, float]  # dimension_name -> avg_score
+    overall_avg: float | None = None

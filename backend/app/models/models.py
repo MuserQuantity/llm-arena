@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, generate_uuid
@@ -110,6 +110,20 @@ class Score(Base, TimestampMixin):
     rationale: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     scorer_model_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("models.id"), nullable=True)
+    dimension_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("dimensions.id"), nullable=True)
 
     run: Mapped["Run"] = relationship(back_populates="scores")
     scorer_model: Mapped["LLMModel | None"] = relationship(foreign_keys=[scorer_model_id])
+    dimension: Mapped["Dimension | None"] = relationship(foreign_keys=[dimension_id])
+
+
+class SystemSetting(Base, TimestampMixin):
+    """System-wide settings (key-value store)."""
+
+    __tablename__ = "system_settings"
+    __table_args__ = (UniqueConstraint("key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str] = mapped_column(Text, default="")
+    description: Mapped[str] = mapped_column(Text, default="")
