@@ -176,7 +176,7 @@ def _parse_judge_response(text: str, max_score: int) -> tuple[float | None, str]
     score_match = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)", text, re.IGNORECASE)
     if score_match:
         raw_score = float(score_match.group(1))
-        score = min(raw_score, float(max_score))
+        score = max(1.0, min(raw_score, float(max_score)))
 
     # Try to find RATIONALE: pattern
     rationale_match = re.search(r"RATIONALE:\s*(.+)", text, re.IGNORECASE | re.DOTALL)
