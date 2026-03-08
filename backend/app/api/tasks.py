@@ -67,6 +67,16 @@ async def create_assignment(task_id: str, data: AssignmentCreate, db: AsyncSessi
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # Check for existing assignment to prevent duplicates
+    existing = await db.execute(
+        select(TaskModelAssignment).where(
+            TaskModelAssignment.task_id == task_id,
+            TaskModelAssignment.model_id == data.model_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Assignment already exists")
+
     assignment = TaskModelAssignment(task_id=task_id, model_id=data.model_id, override_params=data.override_params)
     db.add(assignment)
     await db.flush()

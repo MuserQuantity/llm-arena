@@ -25,7 +25,9 @@ class LLMModel(Base, TimestampMixin):
     adapter_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active")
 
-    task_assignments: Mapped[list["TaskModelAssignment"]] = relationship(back_populates="model")
+    task_assignments: Mapped[list["TaskModelAssignment"]] = relationship(
+        back_populates="model", cascade="all, delete-orphan"
+    )
 
 
 class Dimension(Base, TimestampMixin):
@@ -58,13 +60,16 @@ class Task(Base, TimestampMixin):
 
     dimension: Mapped["Dimension"] = relationship(back_populates="tasks")
     judge_model: Mapped["LLMModel | None"] = relationship(foreign_keys=[judge_model_id])
-    model_assignments: Mapped[list["TaskModelAssignment"]] = relationship(back_populates="task")
+    model_assignments: Mapped[list["TaskModelAssignment"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
 
 
 class TaskModelAssignment(Base, TimestampMixin):
     """Links a task to a model with optional param overrides."""
 
     __tablename__ = "task_model_assignments"
+    __table_args__ = (UniqueConstraint("task_id", "model_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     task_id: Mapped[str] = mapped_column(String(36), ForeignKey("tasks.id"), nullable=False)
@@ -73,7 +78,7 @@ class TaskModelAssignment(Base, TimestampMixin):
 
     task: Mapped["Task"] = relationship(back_populates="model_assignments")
     model: Mapped["LLMModel"] = relationship(back_populates="task_assignments")
-    runs: Mapped[list["Run"]] = relationship(back_populates="task_assignment")
+    runs: Mapped[list["Run"]] = relationship(back_populates="task_assignment", cascade="all, delete-orphan")
 
 
 class Run(Base, TimestampMixin):
@@ -94,7 +99,7 @@ class Run(Base, TimestampMixin):
     error_message: Mapped[str] = mapped_column(Text, default="")
 
     task_assignment: Mapped["TaskModelAssignment"] = relationship(back_populates="runs")
-    scores: Mapped[list["Score"]] = relationship(back_populates="run")
+    scores: Mapped[list["Score"]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
 
 class Score(Base, TimestampMixin):
