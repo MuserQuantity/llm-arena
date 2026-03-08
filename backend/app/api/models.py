@@ -81,6 +81,52 @@ async def delete_model(model_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(model)
 
 
+@router.post("/test-connection-inline")
+async def test_connection_inline(data: dict, db: AsyncSession = Depends(get_db)):
+    """Test connection using provided parameters directly (no saved model needed)."""
+    import httpx
+
+    from app.config import settings as app_settings
+    from app.utils.url_validation import validate_api_url
+
+    api_base = data.get("api_base") or app_settings.llm_api_base_url
+    api_key = data.get("api_key") or ""
+    custom_headers = data.get("custom_headers") or {}
+    model_id = data.get("model_id")
+
+    # If editing an existing model and no new api_key provided, read from DB
+    existing_model_id = data.get("existing_model_db_id")
+    if existing_model_id and not api_key:
+        result = await db.execute(select(LLMModel).where(LLMModel.id == existing_model_id))
+        existing = result.scalar_one_or_none()
+        if existing:
+            api_key = existing.api_key_encrypted or app_settings.llm_api_key
+            if not api_base or api_base == (existing.api_base or ""):
+                api_base = existing.api_base or app_settings.llm_api_base_url
+
+    if not api_key:
+        api_key = app_settings.llm_api_key
+
+    if not api_base:
+        return {"status": "error", "message": "未配置 API Base URL"}
+
+    await validate_api_url(api_base)
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            headers = {"Authorization": f"Bearer {api_key}"}
+            if custom_headers and isinstance(custom_headers, dict):
+                headers.update(custom_headers)
+            resp = await client.get(f"{api_base}/models", headers=headers)
+            if resp.status_code == 200:
+                return {"status": "success", "message": "连接成功"}
+            return {"status": "error", "message": f"HTTP {resp.status_code}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/{model_id}/test-connection")
 async def test_connection(model_id: str, db: AsyncSession = Depends(get_db)):
     import httpx

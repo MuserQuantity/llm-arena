@@ -61,6 +61,8 @@ export const apiModels = {
   delete: (id: string) => apiFetch<void>(`/api/models/${id}`, { method: "DELETE" }),
   testConnection: (id: string) =>
     apiFetch<{ status: string; message: string }>(`/api/models/${id}/test-connection`, { method: "POST" }),
+  testConnectionInline: (data: { api_base?: string; api_key?: string; model_id?: string; custom_headers?: Record<string, string>; existing_model_db_id?: string }) =>
+    apiFetch<{ status: string; message: string }>("/api/models/test-connection-inline", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ── Dimensions ──

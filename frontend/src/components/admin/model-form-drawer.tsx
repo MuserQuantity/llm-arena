@@ -41,6 +41,7 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
   const [customHeaders, setCustomHeaders] = useState("{}");
   const [status, setStatus] = useState("active");
   const [testStatus, setTestStatus] = useState<"idle" | "success" | "error">("idle");
+  const [testMessage, setTestMessage] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -66,16 +67,25 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
       setDefaultParams("{}"); setFixedParams("{}");
       setAdapterConfig("{}"); setCustomHeaders("{}"); setStatus("active");
     }
-    setTestStatus("idle"); setError("");
+    setTestStatus("idle"); setTestMessage(""); setError("");
   }, [editModel, open]);
 
   const handleTest = async () => {
-    if (!editModel) return;
-    setTestLoading(true);
+    setTestLoading(true); setTestStatus("idle"); setTestMessage("");
     try {
-      const r = await apiModels.testConnection(editModel.id);
+      let ch: Record<string, string> | undefined;
+      try { const parsed = JSON.parse(customHeaders); if (typeof parsed === "object" && parsed !== null) ch = parsed; } catch { /* ignore */ }
+
+      const r = await apiModels.testConnectionInline({
+        api_base: apiBase,
+        api_key: apiKey || undefined,
+        model_id: modelId,
+        custom_headers: ch,
+        existing_model_db_id: editModel?.id,
+      });
       setTestStatus(r.status === "success" ? "success" : "error");
-    } catch { setTestStatus("error"); } finally { setTestLoading(false); }
+      setTestMessage(r.message || "");
+    } catch { setTestStatus("error"); setTestMessage("请求失败"); } finally { setTestLoading(false); }
   };
 
   const toggle = (cap: string) =>
@@ -202,23 +212,21 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
               </div>
             </div>
 
-            {isEdit && (
-              <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading}>
-                  {testLoading ? "测试中..." : "测试连接"}
-                </Button>
-                {testStatus === "success" && (
-                  <span className="text-sm font-semibold text-green-600 flex items-center gap-1">
-                    <Check className="w-4 h-4" /> 连接成功
-                  </span>
-                )}
-                {testStatus === "error" && (
-                  <span className="text-sm font-semibold text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> 连接失败
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading}>
+                {testLoading ? "测试中..." : "测试连接"}
+              </Button>
+              {testStatus === "success" && (
+                <span className="text-sm font-semibold text-green-600 flex items-center gap-1">
+                  <Check className="w-4 h-4" /> 连接成功
+                </span>
+              )}
+              {testStatus === "error" && (
+                <span className="text-sm font-semibold text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {testMessage || "连接失败"}
+                </span>
+              )}
+            </div>
           </div>
 
           <hr className="border-border" />
