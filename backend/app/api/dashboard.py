@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import case, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -10,18 +10,36 @@ from app.schemas.schemas import LeaderboardEntry, ModelEvalSummary, ModelTaskRes
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
+async def _get_score_scales(db: AsyncSession) -> tuple[int, int]:
+    """Fetch score scale settings. Returns (llm_max, human_max)."""
+    result = await db.execute(
+        select(SystemSetting).where(SystemSetting.key.in_(["score_scale_max", "human_score_scale_max"]))
+    )
+    settings_map = {s.key: s.value for s in result.scalars().all()}
+    return int(settings_map.get("score_scale_max", "10")), int(settings_map.get("human_score_scale_max", "5"))
+
+
 @router.get("/leaderboard", response_model=list[LeaderboardEntry])
 async def get_leaderboard(dimension_id: str | None = None, db: AsyncSession = Depends(get_db)):
-    """Get leaderboard data with average scores per model."""
+    """Get leaderboard data with average scores per model, normalized to percentages."""
+    llm_max, human_max = await _get_score_scales(db)
+
+    # Normalize each score to a 0-100 percentage based on its score_type
+    normalized_score = case(
+        (Score.score_type == "llm_judge", Score.numeric_score / literal(llm_max) * literal(100)),
+        (Score.score_type == "manual", Score.numeric_score / literal(human_max) * literal(100)),
+        else_=Score.numeric_score,
+    )
+
     query = (
         select(
             LLMModel.id.label("model_id"),
             LLMModel.name.label("model_name"),
             LLMModel.icon_key.label("model_icon_key"),
             LLMModel.provider.label("provider"),
-            func.avg(Score.numeric_score).label("avg_score"),
+            func.avg(normalized_score).label("avg_score"),
             func.count(Run.id.distinct()).label("total_runs"),
-            func.max(Score.numeric_score).label("top_score"),
+            func.max(normalized_score).label("top_score"),
             func.max(Run.completed_at).label("last_updated"),
         )
         .join(TaskModelAssignment, LLMModel.id == TaskModelAssignment.model_id)
@@ -35,7 +53,7 @@ async def get_leaderboard(dimension_id: str | None = None, db: AsyncSession = De
     if dimension_id:
         query = query.join(Task, TaskModelAssignment.task_id == Task.id).where(Task.dimension_id == dimension_id)
 
-    query = query.order_by(func.avg(Score.numeric_score).desc())
+    query = query.order_by(func.avg(normalized_score).desc())
 
     result = await db.execute(query)
     rows = result.all()
@@ -102,13 +120,7 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # Fetch score scale settings for normalization
-    settings_result = await db.execute(
-        select(SystemSetting).where(SystemSetting.key.in_(["score_scale_max", "human_score_scale_max"]))
-    )
-    settings_map = {s.key: s.value for s in settings_result.scalars().all()}
-    llm_max = int(settings_map.get("score_scale_max", "10"))
-    human_max = int(settings_map.get("human_score_scale_max", "5"))
+    llm_max, human_max = await _get_score_scales(db)
 
     # Get all tasks with their dimensions
     tasks_result = await db.execute(
@@ -214,6 +226,15 @@ async def get_summary(db: AsyncSession = Depends(get_db)):
     dims_result = await db.execute(select(Dimension).order_by(Dimension.name))
     all_dims = dims_result.scalars().all()
 
+    llm_max, human_max = await _get_score_scales(db)
+
+    # Normalize each score to a 0-100 percentage based on its score_type
+    normalized_score = case(
+        (Score.score_type == "llm_judge", Score.numeric_score / literal(llm_max) * literal(100)),
+        (Score.score_type == "manual", Score.numeric_score / literal(human_max) * literal(100)),
+        else_=Score.numeric_score,
+    )
+
     summary = []
     for model in all_models:
         model_data = {
@@ -229,7 +250,7 @@ async def get_summary(db: AsyncSession = Depends(get_db)):
 
         for dim in all_dims:
             score_result = await db.execute(
-                select(func.avg(Score.numeric_score))
+                select(func.avg(normalized_score))
                 .join(Run, Score.run_id == Run.id)
                 .join(TaskModelAssignment, Run.task_assignment_id == TaskModelAssignment.id)
                 .join(Task, TaskModelAssignment.task_id == Task.id)
