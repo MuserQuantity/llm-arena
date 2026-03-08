@@ -77,10 +77,27 @@ export function ModelFormDrawer({ open, onOpenChange, editModel }: ModelFormDraw
 
   const toggle = (cap: string) => setCapabilities(p => p.includes(cap) ? p.filter(c => c !== cap) : [...p, cap]);
 
-  const pj = (s: string) => { try { const v = JSON.parse(s); return typeof v === "object" && v !== null ? v : null; } catch { return null; } };
+  const pj = (s: string): Record<string, unknown> | null => {
+    if (!s || s.trim() === "" || s.trim() === "{}") return s.trim() === "{}" ? {} : null;
+    try { const v = JSON.parse(s); return typeof v === "object" && v !== null ? v : null; } catch { return undefined as never; }
+  };
+
+  const validateJson = (s: string, label: string): string | null => {
+    if (!s || s.trim() === "" || s.trim() === "{}") return null;
+    try { const v = JSON.parse(s); if (typeof v !== "object" || v === null) return `${label} must be a JSON object.`; return null; }
+    catch { return `${label} contains invalid JSON.`; }
+  };
 
   const handleSave = async () => {
     if (!name || !provider || !modelId) { setError("Name, Provider, and Model ID are required."); return; }
+    const jsonFields: [string, string][] = [
+      [defaultParams, "Default Params"], [fixedParams, "Fixed Params"],
+      [adapterConfig, "Adapter Config"], [customHeaders, "Custom Headers"],
+    ];
+    for (const [val, label] of jsonFields) {
+      const err = validateJson(val, label);
+      if (err) { setError(err); return; }
+    }
     setSaving(true); setError("");
     try {
       const payload = {

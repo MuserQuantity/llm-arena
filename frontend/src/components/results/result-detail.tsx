@@ -114,6 +114,7 @@ function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: Sco
   const displayStars = hoverStars || stars;
 
   const handleSave = async () => {
+    if (stars <= 0) return;
     setSaving(true);
     try {
       if (score) {
@@ -155,7 +156,7 @@ function ManualScoreCard({ runId, score, onSaved }: { runId: string; score?: Sco
           </div>
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add notes..." className="text-sm" rows={2} />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleSave} disabled={saving}><Save className="w-3 h-3 mr-1" /> {saving ? "Saving..." : "Save Score"}</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || stars <= 0}><Save className="w-3 h-3 mr-1" /> {saving ? "Saving..." : "Save Score"}</Button>
             <Button size="sm" variant="outline" onClick={() => setEditing(false)}><X className="w-3 h-3 mr-1" /> Cancel</Button>
           </div>
         </div>
