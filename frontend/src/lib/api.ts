@@ -79,6 +79,7 @@ export const apiTasks = {
     apiFetch<TaskResponse>("/api/tasks", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Partial<TaskCreatePayload>) =>
     apiFetch<TaskResponse>(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => apiFetch<void>(`/api/tasks/${id}`, { method: "DELETE" }),
   createAssignment: (taskId: string, data: { model_id: string; override_params?: Record<string, unknown> }) =>
     apiFetch<AssignmentResponse>(`/api/tasks/${taskId}/assignments`, { method: "POST", body: JSON.stringify(data) }),
   listAssignments: (taskId: string) => apiFetch<AssignmentResponse[]>(`/api/tasks/${taskId}/assignments`),
@@ -118,6 +119,22 @@ export const apiDashboard = {
       `/api/dashboard/leaderboard${dimensionId ? `?dimension_id=${dimensionId}` : ""}`
     ),
   modelSummary: (modelId: string) => apiFetch<ModelSummaryResponse>(`/api/dashboard/model-summary/${modelId}`),
+  modelEval: (modelId: string) => apiFetch<ModelEvalSummaryResponse>(`/api/dashboard/model-eval/${modelId}`),
+  summary: () => apiFetch<SummaryResponse>("/api/dashboard/summary"),
+};
+
+// ── Settings ──
+export const apiSettings = {
+  list: () => apiFetch<SettingResponse[]>("/api/settings"),
+  get: (key: string) => apiFetch<{ key: string; value: string; description: string }>(`/api/settings/${key}`),
+  update: (settings: Record<string, string>) =>
+    apiFetch<{ updated: string[] }>("/api/settings", { method: "PUT", body: JSON.stringify({ settings }) }),
+};
+
+// ── Judge ──
+export const apiJudge = {
+  scoreRun: (runId: string) =>
+    apiFetch<ScoreResponse>(`/api/judge/score/${runId}`, { method: "POST" }),
 };
 
 // ── Response Types ──
@@ -256,4 +273,56 @@ export interface ModelSummaryResponse {
   completed_runs: number;
   failed_runs: number;
   avg_score: number | null;
+}
+
+export interface SettingResponse {
+  id: string;
+  key: string;
+  value: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelTaskResultResponse {
+  task_id: string;
+  task_title: string;
+  dimension_id: string;
+  dimension_name: string;
+  run_id: string | null;
+  run_status: string | null;
+  llm_score: number | null;
+  human_score: number | null;
+  llm_rationale: string | null;
+  human_notes: string | null;
+}
+
+export interface ModelEvalSummaryResponse {
+  model_id: string;
+  model_name: string;
+  model_icon_key: string;
+  provider: string;
+  tasks: ModelTaskResultResponse[];
+  dimension_averages: Record<string, number>;
+  overall_avg: number | null;
+}
+
+export interface SummaryDimension {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface SummaryModelEntry {
+  model_id: string;
+  model_name: string;
+  model_icon_key: string;
+  provider: string;
+  dimensions: Record<string, number>;
+  overall_avg: number | null;
+}
+
+export interface SummaryResponse {
+  dimensions: SummaryDimension[];
+  models: SummaryModelEntry[];
 }

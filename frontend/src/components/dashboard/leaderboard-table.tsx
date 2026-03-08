@@ -11,11 +11,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ModelIcon } from "@/components/layout/model-icon";
-import { LeaderboardEntry } from "@/types";
-import { getScoreBgColor } from "@/lib/mock-data";
+import { LeaderboardEntryResponse } from "@/lib/api";
+
+function getScoreBgColor(score: number): string {
+  if (score >= 8) return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+  if (score >= 5) return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300";
+  return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+}
 
 interface LeaderboardTableProps {
-  data: LeaderboardEntry[];
+  data: LeaderboardEntryResponse[];
 }
 
 export function LeaderboardTable({ data }: LeaderboardTableProps) {
@@ -31,6 +36,7 @@ export function LeaderboardTable({ data }: LeaderboardTableProps) {
         <TableRow>
           <TableHead className="w-10">#</TableHead>
           <TableHead>Model</TableHead>
+          <TableHead>Provider</TableHead>
           <TableHead>Avg Score</TableHead>
           <TableHead>Runs</TableHead>
           <TableHead>Top Score</TableHead>
@@ -38,18 +44,21 @@ export function LeaderboardTable({ data }: LeaderboardTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((entry) => (
+        {data.map((entry, idx) => (
           <TableRow
             key={entry.model_id}
             className="cursor-pointer"
-            onClick={() => router.push(`/admin/runs?model_id=${entry.model_id}`)}
+            onClick={() => router.push(`/models/${entry.model_id}/eval`)}
           >
-            <TableCell className="font-medium">{entry.rank}</TableCell>
+            <TableCell className="font-medium">{idx + 1}</TableCell>
             <TableCell>
               <div className="flex items-center gap-2">
-                <ModelIcon iconKey={entry.model_icon} size="md" />
+                <ModelIcon iconKey={entry.model_icon_key} size="md" />
                 <span className="font-medium">{entry.model_name}</span>
               </div>
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {entry.provider}
             </TableCell>
             <TableCell>
               <span
@@ -61,7 +70,7 @@ export function LeaderboardTable({ data }: LeaderboardTableProps) {
               </span>
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {entry.run_count}
+              {entry.total_runs}
             </TableCell>
             <TableCell>
               <span
@@ -73,7 +82,7 @@ export function LeaderboardTable({ data }: LeaderboardTableProps) {
               </span>
             </TableCell>
             <TableCell className="text-muted-foreground text-sm">
-              {entry.last_updated}
+              {entry.last_updated || "—"}
             </TableCell>
           </TableRow>
         ))}

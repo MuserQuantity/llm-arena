@@ -1,10 +1,15 @@
 "use client";
 
 import React from "react";
-import { Dimension } from "@/types";
+
+interface DimensionPill {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 interface DimensionPillsProps {
-  dimensions: Dimension[];
+  dimensions: DimensionPill[];
   activeDimension: string | null;
   onSelect: (id: string | null) => void;
 }
