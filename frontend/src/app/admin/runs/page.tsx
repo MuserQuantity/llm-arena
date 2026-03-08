@@ -7,7 +7,7 @@ import { RunMonitor } from "@/components/admin/run-monitor";
 export default function RunsPage() {
   return (
     <>
-      <Topbar title="Admin › Run Monitor" />
+      <Topbar title="运行监控" />
       <main className="p-8">
         <RunMonitor />
       </main>

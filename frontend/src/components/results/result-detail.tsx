@@ -10,10 +10,10 @@ import { Input } from "@/components/ui/input";
 
 function getStatusConfig(status: string) {
   switch (status) {
-    case "done": return { label: "Completed", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", dotColor: "" };
-    case "running": return { label: "Running", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", dotColor: "bg-blue-500" };
-    case "failed": return { label: "Failed", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300", dotColor: "" };
-    default: return { label: status || "Pending", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", dotColor: "" };
+    case "done": return { label: "已完成", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", dotColor: "" };
+    case "running": return { label: "运行中", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", dotColor: "bg-blue-500" };
+    case "failed": return { label: "失败", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300", dotColor: "" };
+    default: return { label: status || "待运行", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", dotColor: "" };
   }
 }
 
@@ -70,7 +70,7 @@ export function ResultDetail({ run, scores, onScoresUpdate }: ResultDetailProps)
         {run.status === "done" && !judgeScore && (
           <Button onClick={handleJudge} disabled={judging} className="w-full">
             {judging ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BarChart3 className="w-4 h-4 mr-2" />}
-            {judging ? "Judging..." : "Run LLM Judge"}
+            {judging ? "评分中..." : "运行 LLM Judge 评分"}
           </Button>
         )}
         {judgeScore && <JudgeScoreCard score={judgeScore} maxScore={llmMax} />}
@@ -87,7 +87,7 @@ export function ResultDetail({ run, scores, onScoresUpdate }: ResultDetailProps)
 
 function OutputRenderer({ output, outputType }: { output?: string; outputType?: string }) {
   const [showRaw, setShowRaw] = useState(false);
-  if (!output) return <div className="bg-secondary rounded-xl h-64 flex items-center justify-center text-muted-foreground border border-border">No output available</div>;
+  if (!output) return <div className="bg-secondary rounded-xl h-64 flex items-center justify-center text-muted-foreground border border-border">暂无输出</div>;
   if (outputType === "html" && !showRaw) {
     return (<div>
       <div className="flex items-center gap-2 mb-2">
@@ -122,7 +122,7 @@ function JudgeScoreCard({ score, maxScore }: { score: ScoreResponse; maxScore: n
   const pct = score.numeric_score != null ? Math.round((score.numeric_score / maxScore) * 100) : 0;
   return (
     <div className="border border-border rounded-xl p-4 border-l-4 border-l-blue-500">
-      <div className="text-xs font-semibold text-muted-foreground mb-2 tracking-wide">LLM Judge Score</div>
+      <div className="text-xs font-semibold text-muted-foreground mb-2 tracking-wide">LLM Judge 评分</div>
       <div className="flex items-end gap-2 mb-2">
         <span className="text-2xl font-extrabold">{score.numeric_score?.toFixed(1)}</span>
         <span className="text-sm font-normal text-muted-foreground mb-0.5">/ {maxScore}</span>
@@ -135,7 +135,7 @@ function JudgeScoreCard({ score, maxScore }: { score: ScoreResponse; maxScore: n
 }
 
 function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; score?: ScoreResponse; maxScore: number; onSaved?: () => void }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!score);
   const [stars, setStars] = useState(score?.numeric_score ?? 0);
   const [hoverStars, setHoverStars] = useState(0);
   const [notes, setNotes] = useState(score?.rationale ?? "");
@@ -170,10 +170,10 @@ function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; s
   return (
     <div className="border border-border rounded-xl p-4 border-l-4 border-l-orange-500">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-muted-foreground tracking-wide">Manual Score</span>
+        <span className="text-xs font-semibold text-muted-foreground tracking-wide">人工评分</span>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-xs font-semibold text-green-600">Saved</span>}
-          {!editing && <button onClick={() => setEditing(true)} className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"><Edit3 className="w-3 h-3" /> Edit</button>}
+          {saved && <span className="text-xs font-semibold text-green-600">已保存</span>}
+          {!editing && <button onClick={() => setEditing(true)} className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"><Edit3 className="w-3 h-3" /> 编辑</button>}
         </div>
       </div>
       {!editing ? (
@@ -204,7 +204,7 @@ function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; s
             </div>
           ) : (
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Score (1 - {maxScore})</label>
+              <label className="text-xs font-medium text-muted-foreground">评分 (1 - {maxScore})</label>
               <Input
                 type="number"
                 min={1}
@@ -221,10 +221,10 @@ function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; s
               />
             </div>
           )}
-          <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add notes..." className="text-sm" rows={2} />
+          <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="添加评分备注..." className="text-sm" rows={2} />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleSave} disabled={saving || stars <= 0}><Save className="w-3 h-3 mr-1" /> {saving ? "Saving..." : "Save Score"}</Button>
-            <Button size="sm" variant="outline" onClick={() => setEditing(false)}><X className="w-3 h-3 mr-1" /> Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || stars <= 0}><Save className="w-3 h-3 mr-1" /> {saving ? "保存中..." : "保存评分"}</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)}><X className="w-3 h-3 mr-1" /> 取消</Button>
           </div>
         </div>
       )}
@@ -244,8 +244,8 @@ function ScoreComposition({ judgeScore, manualScore, llmMax, humanMax }: {
   const humanPct = humanVal != null ? (humanVal / humanMax) * 100 : null;
 
   const items: { label: string; score: number; max: number; pct: number; color: string }[] = [];
-  if (llmVal != null) items.push({ label: "LLM Judge", score: llmVal, max: llmMax, pct: llmPct!, color: "bg-blue-500" });
-  if (humanVal != null) items.push({ label: "Human", score: humanVal, max: humanMax, pct: humanPct!, color: "bg-orange-500" });
+  if (llmVal != null) items.push({ label: "LLM Judge 评分", score: llmVal, max: llmMax, pct: llmPct!, color: "bg-blue-500" });
+  if (humanVal != null) items.push({ label: "人工评分", score: humanVal, max: humanMax, pct: humanPct!, color: "bg-orange-500" });
 
   if (items.length === 0) return null;
 
@@ -253,7 +253,7 @@ function ScoreComposition({ judgeScore, manualScore, llmMax, humanMax }: {
 
   return (
     <div className="border border-border rounded-xl p-4">
-      <div className="text-xs font-semibold text-muted-foreground mb-3 tracking-wide">Score Composition</div>
+      <div className="text-xs font-semibold text-muted-foreground mb-3 tracking-wide">评分构成</div>
       <div className="space-y-3">
         {items.map(item => (
           <div key={item.label}>
@@ -268,7 +268,7 @@ function ScoreComposition({ judgeScore, manualScore, llmMax, humanMax }: {
       {items.length > 1 && (
         <div className="mt-4 pt-3 border-t border-border">
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-semibold">Normalized Average</span>
+            <span className="font-semibold">归一化均分</span>
             <span className="font-bold text-foreground">{Math.round(avgPct)}%</span>
           </div>
           <ScoreBar value={avgPct} max={100} color="bg-green-500" />

@@ -16,15 +16,76 @@ An internal tool for evaluating and comparing the performance of large language 
 - **Dark Mode** — Full dark/light theme support
 - **JWT Auth** — Login-protected with `.env`-configured credentials
 
-## Workflow
+## 使用指南 / Workflow
 
-1. **Create Tasks** — Go to Admin > Tasks, create evaluation tasks and assign them to dimensions (e.g., Code Quality, Reasoning). Configure the prompt, eval mode, and rubric.
-2. **Create/Manage Models** — Go to Admin > Models, add LLM models with their API configurations. Test connections to verify they work.
-3. **Configure Judge** — Go to Admin > Settings, select a default judge model and configure the scoring rubric and score scales.
-4. **Run Evaluations** — Click on a model to open its evaluation page. For each task, click Execute to run the task against the model.
-5. **Score Results** — After a task completes, click the judge icon to run LLM auto-scoring. You can also manually score results with star ratings and notes.
-6. **View Results** — Click the eye icon to view detailed results including model output, LLM judge score, and manual scores.
-7. **Review Summary** — Go to the Summary Dashboard to see aggregated scores across all dimensions and models.
+### 第 1 步：创建评测维度
+
+维度（Dimension）是评测的分类标签，例如"代码能力"、"推理能力"、"创意写作"等。维度用于在汇总结果中分类展示评分。
+
+目前可以通过 API 创建维度：
+
+```bash
+curl -X POST http://localhost:8000/api/dimensions \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "代码能力", "slug": "coding", "description": "编程和代码生成能力"}'
+```
+
+也可以在 Seed 脚本中预定义维度。
+
+### 第 2 步：创建评测任务（Tasks）
+
+进入侧边栏 **任务管理** 页面，点击"新建任务"，填写以下字段：
+
+| 字段 | 说明 |
+|------|------|
+| **任务名称** | 简洁描述，如"Python 排序算法实现" |
+| **评测维度** | 该任务属于哪个维度（需先创建维度） |
+| **Prompt** | 发送给被评测 LLM 的完整指令。模型根据此 Prompt 生成输出，输出再被 Judge 评分 |
+| **预期输出格式** | `text` / `html` / `code` / `json` / `markdown`，影响结果展示方式 |
+| **评分模式** | `LLM Judge`（推荐）= 用 Judge 模型自动评分；`脚本评分` = 自定义脚本（暂未实现）；`混合` = 两者结合 |
+| **Judge 评分标准** | 告诉 Judge 模型按什么标准打分（如正确性、可读性、效率等）。不填则使用全局默认 Rubric |
+| **YAML 配置** | 用于脚本评分模式的配置（当前版本预留字段） |
+
+### 第 3 步：注册 LLM 模型（Models）
+
+进入侧边栏 **模型管理** 页面，点击"添加模型"注册被评测模型。需要配置：
+- 模型名称、供应商、Model ID
+- API Base URL 和 API Key（用于调用模型接口）
+- 可选：capabilities、default_params 等高级参数
+
+> 注意：Judge 模型也需要作为一个普通模型注册，后续选择它作为裁判。
+
+### 第 4 步：设置 Judge 模型
+
+在侧边栏底部可以看到 **Judge 模型** 指示器。如果显示"未设置"，点击它从已注册的模型中选择一个作为全局 Judge。也可以在 **系统设置** 页面进行配置。
+
+Judge 模型负责自动对其他模型的输出打分。建议选择能力最强的模型作为 Judge（如 GPT-5、Claude Opus 等）。
+
+### 第 5 步：执行评测
+
+在 **模型管理** 页面，找到要评测的模型，点击 **"开始评测"** 按钮进入该模型的评测页面。
+
+评测页面会列出所有任务，按维度分组，显示执行状态和评分。你可以：
+- 点击 **执行** 按钮逐个运行任务（将 Prompt 发送给该模型并获取输出）
+- 点击 **"执行所有未运行"** 按钮批量执行
+- 对已完成的任务点击 **评分** 触发 LLM Judge 自动打分
+- 点击 **"自动评分所有未评"** 按钮批量评分
+
+### 第 6 步：查看评分 & 人工打分
+
+点击任务行的 **详情** 按钮查看运行结果，包括：
+- 模型输出内容（HTML 输出有沙盒预览）
+- LLM Judge 评分和评分理由
+- 人工评分区域（默认展开，直接打星 / 输入分数并添加备注）
+
+人工评分和 LLM 评分是独立的，都会被纳入汇总计算。
+
+### 第 7 步：查看汇总结果
+
+进入侧边栏 **评测汇总** 页面，可以看到所有模型在各维度上的归一化评分矩阵（百分制）。点击分数单元格可跳转到对应模型的评测详情。
+
+**排行榜** 页面按总体均分排名，支持按维度筛选。
 
 ## Tech Stack
 

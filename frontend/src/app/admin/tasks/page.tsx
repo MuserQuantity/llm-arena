@@ -12,13 +12,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
+  Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { apiTasks, apiDimensions, TaskResponse, DimensionResponse, TaskCreatePayload } from "@/lib/api";
-import { Plus, Pencil, Trash2, Filter } from "lucide-react";
+import { Plus, Pencil, Trash2, Filter, HelpCircle } from "lucide-react";
 
 type EvalMode = "script_only" | "llm_judge" | "both";
 
@@ -32,62 +32,71 @@ export default function TasksPage() {
   const [deleting, setDeleting] = useState(false);
   const [filterDim, setFilterDim] = useState<string>("all");
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [t, d] = await Promise.all([apiTasks.list(), apiDimensions.list()]);
       setTasks(t); setDimensions(d);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = filterDim === "all" ? tasks : tasks.filter(t => t.dimension_id === filterDim);
 
   const handleDelete = async () => {
     if (!deleteTask) return;
     setDeleting(true);
-    try { await apiTasks.delete(deleteTask.id); setDeleteTask(null); fetch(); }
+    try { await apiTasks.delete(deleteTask.id); setDeleteTask(null); fetchData(); }
     catch (e) { console.error(e); } finally { setDeleting(false); }
   };
 
   const dimName = (id: string) => dimensions.find(d => d.id === id)?.name || "—";
 
+  const evalModeLabel: Record<string, string> = {
+    llm_judge: "LLM Judge",
+    script_only: "脚本评分",
+    both: "混合模式",
+  };
+
   return (
     <>
-      <Topbar title="Admin > Tasks" />
+      <Topbar title="任务管理" />
       <main className="p-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-extrabold">Task Registry</h1>
-          <Button onClick={() => { setEditTask(null); setDrawerOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> Add Task</Button>
+          <div>
+            <h1 className="text-2xl font-extrabold">任务管理</h1>
+            <p className="text-sm text-muted-foreground mt-1">创建和管理评测任务。每个任务定义一个发送给 LLM 的 Prompt 及其评分标准</p>
+          </div>
+          <Button onClick={() => { setEditTask(null); setDrawerOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> 新建任务</Button>
         </div>
 
         <div className="flex items-center gap-3 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filterDim} onValueChange={v => setFilterDim(v ?? "all")}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="All Dimensions" /></SelectTrigger>
+            <SelectTrigger className="w-48"><SelectValue placeholder="全部维度" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Dimensions</SelectItem>
+              <SelectItem value="all">全部维度</SelectItem>
               {dimensions.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-muted-foreground">Loading tasks...</div>
+          <div className="text-center py-20 text-muted-foreground">加载任务列表中...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
-            <p className="text-lg font-semibold mb-2">No tasks found</p>
-            <p className="text-sm">Click &quot;Add Task&quot; to create a new evaluation task.</p>
+            <p className="text-lg font-semibold mb-2">暂无任务</p>
+            <p className="text-sm">点击"新建任务"创建第一个评测任务</p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Dimension</TableHead>
-                <TableHead>Eval Mode</TableHead>
-                <TableHead>Output Type</TableHead>
-                <TableHead className="w-28">Actions</TableHead>
+                <TableHead>任务名称</TableHead>
+                <TableHead>维度</TableHead>
+                <TableHead>评分模式</TableHead>
+                <TableHead>输出类型</TableHead>
+                <TableHead className="w-28">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -95,12 +104,12 @@ export default function TasksPage() {
                 <TableRow key={task.id}>
                   <TableCell className="font-medium">{task.title}</TableCell>
                   <TableCell><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{dimName(task.dimension_id)}</span></TableCell>
-                  <TableCell className="text-muted-foreground capitalize">{task.eval_mode?.replace("_", " ") || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{evalModeLabel[task.eval_mode] || task.eval_mode || "—"}</TableCell>
                   <TableCell className="text-muted-foreground uppercase text-xs">{task.expected_output_type || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => { setEditTask(task); setDrawerOpen(true); }}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTask(task)} className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setEditTask(task); setDrawerOpen(true); }} title="编辑"><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTask(task)} className="text-red-500 hover:text-red-600" title="删除"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -109,22 +118,28 @@ export default function TasksPage() {
           </Table>
         )}
 
-        <TaskDrawer open={drawerOpen} onOpenChange={o => { setDrawerOpen(o); if (!o) { setEditTask(null); fetch(); } }} editTask={editTask} dimensions={dimensions} />
+        <TaskDrawer open={drawerOpen} onOpenChange={o => { setDrawerOpen(o); if (!o) { setEditTask(null); fetchData(); } }} editTask={editTask} dimensions={dimensions} />
 
         <Dialog open={!!deleteTask} onOpenChange={o => { if (!o) setDeleteTask(null); }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Task</DialogTitle>
-              <DialogDescription>Are you sure you want to delete &quot;{deleteTask?.title}&quot;? This cannot be undone.</DialogDescription>
+              <DialogTitle>删除任务</DialogTitle>
+              <DialogDescription>确定要删除 &quot;{deleteTask?.title}&quot; 吗？此操作无法撤销。</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteTask(null)}>Cancel</Button>
-              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? "Deleting..." : "Delete"}</Button>
+              <Button variant="outline" onClick={() => setDeleteTask(null)}>取消</Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? "删除中..." : "确认删除"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
     </>
+  );
+}
+
+function FieldHelp({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{children}</p>
   );
 }
 
@@ -156,7 +171,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
   }, [editTask, open]);
 
   const handleSave = async () => {
-    if (!title || !dimensionId || !prompt) { setError("Title, Dimension, and Prompt are required."); return; }
+    if (!title || !dimensionId || !prompt) { setError("请填写必填字段：名称、维度和 Prompt"); return; }
     setSaving(true); setError("");
     try {
       const payload: TaskCreatePayload = {
@@ -177,13 +192,13 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[540px] overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-[580px] overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
           <SheetHeader>
-            <SheetTitle className="text-lg font-bold">{isEdit ? "Edit Task" : "New Task"}</SheetTitle>
+            <SheetTitle className="text-lg font-bold">{isEdit ? "编辑任务" : "新建任务"}</SheetTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isEdit ? "Modify the task configuration below." : "Configure a new evaluation task."}
+              {isEdit ? "修改任务配置。" : "配置一个新的评测任务，定义 Prompt 和评分标准。"}
             </p>
           </SheetHeader>
         </div>
@@ -199,34 +214,41 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
 
           {/* Basic Info Section */}
           <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Basic Information</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">基本信息</h3>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Title <span className="text-red-500">*</span></label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Generate landing page HTML" className="h-10" />
+              <label className="text-sm font-medium">任务名称 <span className="text-red-500">*</span></label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="例如：生成 Landing Page HTML" className="h-10" />
+              <FieldHelp>任务的显示名称，建议简洁描述评测内容，如"Python 排序算法实现"</FieldHelp>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Dimension <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium">评测维度 <span className="text-red-500">*</span></label>
               <Select value={dimensionId} onValueChange={v => setDimensionId(v ?? "")}>
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select dimension">
-                    {dimensionId ? dimName(dimensionId) || "Select dimension" : "Select dimension"}
+                  <SelectValue placeholder="选择评测维度">
+                    {dimensionId ? dimName(dimensionId) || "选择评测维度" : "选择评测维度"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {dimensions.map(d => (
-                    <SelectItem key={d.id} value={d.id}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500" />
-                        {d.name}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {dimensions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">暂无维度，请先在系统设置中创建</div>
+                  ) : (
+                    dimensions.map(d => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500" />
+                          {d.name}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              <FieldHelp>该任务属于哪个评测维度（如"代码能力"、"推理能力"、"创意写作"）。维度用于在汇总结果中分类展示评分。需先在系统中创建维度。</FieldHelp>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Prompt <span className="text-red-500">*</span></label>
-              <Textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the prompt for the LLM to process..." rows={4} className="resize-y min-h-[80px]" />
+              <Textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="请输入发送给被评测 LLM 的完整指令..." rows={5} className="resize-y min-h-[100px]" />
+              <FieldHelp>这是发送给被评测 LLM 模型的完整指令。模型会根据此 Prompt 生成输出，然后输出将被 Judge 模型评分。请尽量清晰、具体地描述任务要求。</FieldHelp>
             </div>
           </div>
 
@@ -234,11 +256,11 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
 
           {/* Evaluation Config Section */}
           <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Evaluation Configuration</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">评分配置</h3>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Expected Output Type</label>
+              <label className="text-sm font-medium">预期输出格式</label>
               <div className="flex gap-1.5 flex-wrap">
-                {["text","html","markdown","code","json"].map(t => (
+                {(["text", "html", "markdown", "code", "json"] as const).map(t => (
                   <button
                     key={t}
                     onClick={() => setOutputType(t)}
@@ -252,14 +274,19 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
                   </button>
                 ))}
               </div>
+              <FieldHelp>LLM 输出的预期格式。选择 HTML 时，结果页会提供沙盒预览；选择 Code 或 JSON 会以代码格式展示。此设置仅影响结果展示方式，不影响评分。</FieldHelp>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Eval Mode</label>
+              <label className="text-sm font-medium">评分模式</label>
               <div className="grid grid-cols-3 gap-2">
-                {([["script_only","Script Only","Run evaluation scripts"],["llm_judge","LLM Judge","Auto-score with AI"],["both","Both","Scripts + LLM judge"]] as const).map(([v, l, desc]) => (
+                {([
+                  ["llm_judge", "LLM Judge", "使用 Judge 模型自动评分（推荐）"],
+                  ["script_only", "脚本评分", "使用自定义脚本评分（暂未实现）"],
+                  ["both", "混合模式", "同时使用 Judge 和脚本"],
+                ] as const).map(([v, l, desc]) => (
                   <button
                     key={v}
-                    onClick={() => setEvalMode(v)}
+                    onClick={() => setEvalMode(v as EvalMode)}
                     className={`flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-lg border text-center transition-all ${
                       evalMode === v
                         ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 shadow-sm"
@@ -267,10 +294,15 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
                     }`}
                   >
                     <span className="text-xs font-semibold">{l}</span>
-                    <span className="text-[10px] opacity-70">{desc}</span>
+                    <span className="text-[10px] opacity-70 leading-tight">{desc}</span>
                   </button>
                 ))}
               </div>
+              <FieldHelp>
+                <strong>LLM Judge（推荐）</strong>：使用一个 Judge 模型（在侧边栏或设置中配置）自动对被评测模型的输出打分。
+                <strong> 脚本评分</strong>：使用自定义评分脚本（当前版本暂未实现脚本执行引擎）。
+                <strong> 混合模式</strong>：同时使用两种方式。
+              </FieldHelp>
             </div>
           </div>
 
@@ -279,25 +311,25 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
 
           {showJudge && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Judge Rubric</label>
-              <p className="text-xs text-muted-foreground mb-1">Criteria the LLM judge will use to score outputs.</p>
-              <Textarea value={rubric} onChange={e => setRubric(e.target.value)} placeholder="e.g., Quality, adherence to prompt, code correctness..." rows={3} className="resize-y min-h-[60px]" />
+              <label className="text-sm font-medium">Judge 评分标准（Rubric）</label>
+              <Textarea value={rubric} onChange={e => setRubric(e.target.value)} placeholder="例如：请从代码正确性、可读性、效率三个方面评分..." rows={4} className="resize-y min-h-[80px]" />
+              <FieldHelp>告诉 Judge 模型"按什么标准打分"。例如：代码正确性、可读性、边界处理、效率等。如果不填，将使用系统设置中的全局默认 Rubric。好的 Rubric 能显著提升评分质量和一致性。</FieldHelp>
             </div>
           )}
           {showScript && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">YAML Config / Script</label>
-              <p className="text-xs text-muted-foreground mb-1">Evaluation script or YAML configuration for automated scoring.</p>
-              <Textarea value={scriptContent} onChange={e => setScriptContent(e.target.value)} placeholder="# Evaluation script or YAML config" className="font-mono text-xs resize-y min-h-[80px]" rows={4} />
+              <label className="text-sm font-medium">YAML 配置 / 脚本</label>
+              <Textarea value={scriptContent} onChange={e => setScriptContent(e.target.value)} placeholder="# 评分脚本或 YAML 配置" className="font-mono text-xs resize-y min-h-[80px]" rows={4} />
+              <FieldHelp>用于脚本评分模式的配置文件。当前版本主要使用 LLM Judge 模式进行评分，此字段预留给未来的自定义脚本评测扩展。</FieldHelp>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>取消</Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : isEdit ? "Update Task" : "Create Task"}
+            {saving ? "保存中..." : isEdit ? "更新任务" : "创建任务"}
           </Button>
         </div>
       </SheetContent>
