@@ -139,6 +139,12 @@ function ManualScoreCard({ runId, score, maxScore, onSaved }: { runId: string; s
   const [stars, setStars] = useState(score?.numeric_score ?? 0);
   const [hoverStars, setHoverStars] = useState(0);
   const [notes, setNotes] = useState(score?.rationale ?? "");
+
+  useEffect(() => {
+    setStars(score?.numeric_score ?? 0);
+    setNotes(score?.rationale ?? "");
+  }, [score]);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const displayStars = hoverStars || stars;

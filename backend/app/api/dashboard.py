@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.models import Dimension, LLMModel, Run, Score, Task, TaskModelAssignment
+from app.models.models import Dimension, LLMModel, Run, Score, SystemSetting, Task, TaskModelAssignment
 from app.schemas.schemas import LeaderboardEntry, ModelEvalSummary, ModelTaskResult
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -102,6 +102,14 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
+    # Fetch score scale settings for normalization
+    settings_result = await db.execute(
+        select(SystemSetting).where(SystemSetting.key.in_(["score_scale_max", "human_score_scale_max"]))
+    )
+    settings_map = {s.key: s.value for s in settings_result.scalars().all()}
+    llm_max = int(settings_map.get("score_scale_max", "10"))
+    human_max = int(settings_map.get("human_score_scale_max", "5"))
+
     # Get all tasks with their dimensions
     tasks_result = await db.execute(
         select(Task).options(selectinload(Task.dimension)).order_by(Task.created_at.desc())
@@ -148,12 +156,17 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
                         human_score = score.numeric_score
                         human_notes = score.notes or score.rationale
 
-                # Aggregate for dimension averages
-                best_score = llm_score if llm_score is not None else human_score
-                if best_score is not None:
+                # Aggregate for dimension averages using normalized percentages
+                # so LLM scores (e.g. /10) and human scores (e.g. /5) are comparable
+                normalized: float | None = None
+                if llm_score is not None and llm_max > 0:
+                    normalized = (llm_score / llm_max) * 100
+                elif human_score is not None and human_max > 0:
+                    normalized = (human_score / human_max) * 100
+                if normalized is not None:
                     if dim_name not in dimension_scores:
                         dimension_scores[dim_name] = []
-                    dimension_scores[dim_name].append(best_score)
+                    dimension_scores[dim_name].append(normalized)
 
         task_results.append(ModelTaskResult(
             task_id=task.id,
