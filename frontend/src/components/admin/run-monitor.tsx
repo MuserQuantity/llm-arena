@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { apiRuns, RunResponse } from "@/lib/api";
-import { RefreshCw } from "lucide-react";
+import { apiRuns, apiJudge, RunResponse } from "@/lib/api";
+import { RefreshCw, Play, BarChart3, Eye, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 function getStatusConfig(status: string) {
   switch (status) {
@@ -51,6 +52,8 @@ export function RunMonitor() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  const [judgingId, setJudgingId] = useState<string | null>(null);
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -86,6 +89,22 @@ export function RunMonitor() {
     (page - 1) * PAGE_SIZE,
     page * PAGE_SIZE
   );
+
+  const executeRun = async (runId: string) => {
+    setExecutingId(runId);
+    try {
+      await apiRuns.execute(runId);
+      await fetchRuns();
+    } catch (e) { console.error(e); } finally { setExecutingId(null); }
+  };
+
+  const judgeRun = async (runId: string) => {
+    setJudgingId(runId);
+    try {
+      await apiJudge.scoreRun(runId);
+      await fetchRuns();
+    } catch (e) { console.error(e); } finally { setJudgingId(null); }
+  };
 
   const uniqueTasks = Array.from(new Set(allRuns.map((r) => r.task_title).filter(Boolean))) as string[];
   const uniqueModels = Array.from(new Set(allRuns.map((r) => r.model_name).filter(Boolean))) as string[];
@@ -202,16 +221,49 @@ export function RunMonitor() {
                   {formatDuration(run.duration_ms)}
                 </TableCell>
                 <TableCell>
-                  {run.status === "failed" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs h-7"
-                      onClick={async () => { try { await apiRuns.retry(run.id); fetchRuns(); } catch (e) { console.error(e); } }}
-                    >
-                      Retry
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {run.status === "pending" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => executeRun(run.id)}
+                        disabled={executingId === run.id}
+                        title="Execute run"
+                      >
+                        {executingId === run.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                      </Button>
+                    )}
+                    {run.status === "done" && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => judgeRun(run.id)}
+                          disabled={judgingId === run.id}
+                          title="Run LLM Judge"
+                        >
+                          {judgingId === run.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
+                        </Button>
+                        <Link href={`/results/${run.id}`}>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="View Results">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                      </>
+                    )}
+                    {run.status === "failed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs h-7"
+                        onClick={async () => { try { await apiRuns.retry(run.id); fetchRuns(); } catch (e) { console.error(e); } }}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );
