@@ -173,49 +173,133 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
   const showJudge = evalMode === "llm_judge" || evalMode === "both";
   const showScript = evalMode === "script_only" || evalMode === "both";
 
+  const dimName = (id: string) => dimensions.find(d => d.id === id)?.name;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[640px] overflow-y-auto">
-        <SheetHeader><SheetTitle>{isEdit ? "Edit Task" : "Add Task"}</SheetTitle></SheetHeader>
-        <div className="space-y-5 py-4">
-          {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">{error}</div>}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Title *</label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Generate landing page HTML" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Dimension *</label>
-            <Select value={dimensionId} onValueChange={v => setDimensionId(v ?? "")}><SelectTrigger><SelectValue placeholder="Select dimension" /></SelectTrigger><SelectContent>{dimensions.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Prompt *</label>
-            <Textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the prompt for the LLM to process." rows={5} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Expected Output Type</label>
-            <div className="flex gap-2 flex-wrap">
-              {["text","html","markdown","code","json"].map(t => (
-                <button key={t} onClick={() => setOutputType(t)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${outputType === t ? "bg-blue-600 text-white" : "bg-secondary text-muted-foreground hover:bg-accent"}`}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Eval Mode</label>
-            <div className="flex gap-2 flex-wrap">
-              {([["script_only","Script Only"],["llm_judge","LLM Judge"],["both","Both"]] as const).map(([v,l]) => (
-                <button key={v} onClick={() => setEvalMode(v)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${evalMode === v ? "bg-blue-600 text-white" : "bg-secondary text-muted-foreground hover:bg-accent"}`}>{l}</button>
-              ))}
-            </div>
-          </div>
-          {showJudge && <div className="space-y-2"><label className="text-xs font-semibold text-muted-foreground">Rubric</label><Textarea value={rubric} onChange={e => setRubric(e.target.value)} placeholder="e.g., Quality, adherence to prompt, style..." rows={3} /></div>}
-          {showScript && <div className="space-y-2"><label className="text-xs font-semibold text-muted-foreground">YAML Config / Script</label><Textarea value={scriptContent} onChange={e => setScriptContent(e.target.value)} placeholder={'# Evaluation script or YAML config'} className="font-mono text-xs" rows={5} /></div>}
+      <SheetContent className="w-full sm:max-w-[540px] overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+          <SheetHeader>
+            <SheetTitle className="text-lg font-bold">{isEdit ? "Edit Task" : "New Task"}</SheetTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isEdit ? "Modify the task configuration below." : "Configure a new evaluation task."}
+            </p>
+          </SheetHeader>
         </div>
-        <SheetFooter className="gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : isEdit ? "Update Task" : "Save Task"}</Button>
-        </SheetFooter>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-6">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
+              <span className="shrink-0 mt-0.5">!</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Basic Info Section */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Basic Information</h3>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Title <span className="text-red-500">*</span></label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Generate landing page HTML" className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Dimension <span className="text-red-500">*</span></label>
+              <Select value={dimensionId} onValueChange={v => setDimensionId(v ?? "")}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select dimension">
+                    {dimensionId ? dimName(dimensionId) || "Select dimension" : "Select dimension"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {dimensions.map(d => (
+                    <SelectItem key={d.id} value={d.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        {d.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Prompt <span className="text-red-500">*</span></label>
+              <Textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the prompt for the LLM to process..." rows={4} className="resize-y min-h-[80px]" />
+            </div>
+          </div>
+
+          <hr className="border-border" />
+
+          {/* Evaluation Config Section */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Evaluation Configuration</h3>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Expected Output Type</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {["text","html","markdown","code","json"].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setOutputType(t)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-all ${
+                      outputType === t
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600"
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Eval Mode</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([["script_only","Script Only","Run evaluation scripts"],["llm_judge","LLM Judge","Auto-score with AI"],["both","Both","Scripts + LLM judge"]] as const).map(([v, l, desc]) => (
+                  <button
+                    key={v}
+                    onClick={() => setEvalMode(v)}
+                    className={`flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-lg border text-center transition-all ${
+                      evalMode === v
+                        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:border-blue-200"
+                    }`}
+                  >
+                    <span className="text-xs font-semibold">{l}</span>
+                    <span className="text-[10px] opacity-70">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Conditional sections */}
+          {(showJudge || showScript) && <hr className="border-border" />}
+
+          {showJudge && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Judge Rubric</label>
+              <p className="text-xs text-muted-foreground mb-1">Criteria the LLM judge will use to score outputs.</p>
+              <Textarea value={rubric} onChange={e => setRubric(e.target.value)} placeholder="e.g., Quality, adherence to prompt, code correctness..." rows={3} className="resize-y min-h-[60px]" />
+            </div>
+          )}
+          {showScript && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">YAML Config / Script</label>
+              <p className="text-xs text-muted-foreground mb-1">Evaluation script or YAML configuration for automated scoring.</p>
+              <Textarea value={scriptContent} onChange={e => setScriptContent(e.target.value)} placeholder="# Evaluation script or YAML config" className="font-mono text-xs resize-y min-h-[80px]" rows={4} />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex items-center justify-end gap-3">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : isEdit ? "Update Task" : "Create Task"}
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );
