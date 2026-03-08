@@ -192,7 +192,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[580px] overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-[680px] overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
           <SheetHeader>
