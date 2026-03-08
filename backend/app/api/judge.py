@@ -82,8 +82,8 @@ async def judge_score_run(run_id: str, db: AsyncSession = Depends(get_db)):
     judge_prompt = (
         f"You are an expert evaluator. Score the following LLM output.\n\n"
         f"## Task\n{task.prompt}\n\n"
-        f"## Dimension\n{dimension.name}: {dimension.description}\n\n"
-        f"## Evaluation Rubric\n{rubric}\n\n"
+        f"## Dimension\n{dimension.name + ': ' + dimension.description if dimension else 'N/A'}\n\n"
+        f"## Evaluation Rubric\n{rubric or 'Score based on overall quality, correctness, and completeness.'}\n\n"
         f"## LLM Output to Evaluate\n{run.output[:8000]}\n\n"
         f"## Instructions\n"
         f"Provide a numeric score from 1 to {score_max} and a brief rationale.\n"

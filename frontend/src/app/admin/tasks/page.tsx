@@ -20,7 +20,7 @@ import {
 import { apiTasks, apiDimensions, TaskResponse, DimensionResponse, TaskCreatePayload } from "@/lib/api";
 import { Plus, Pencil, Trash2, Filter } from "lucide-react";
 
-type EvalMode = "script" | "llm_judge" | "both";
+type EvalMode = "script_only" | "llm_judge" | "both";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
@@ -171,7 +171,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
   };
 
   const showJudge = evalMode === "llm_judge" || evalMode === "both";
-  const showScript = evalMode === "script" || evalMode === "both";
+  const showScript = evalMode === "script_only" || evalMode === "both";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -204,7 +204,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Eval Mode</label>
             <div className="flex gap-2 flex-wrap">
-              {([["script","Script Only"],["llm_judge","LLM Judge"],["both","Both"]] as const).map(([v,l]) => (
+              {([["script_only","Script Only"],["llm_judge","LLM Judge"],["both","Both"]] as const).map(([v,l]) => (
                 <button key={v} onClick={() => setEvalMode(v)} className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${evalMode === v ? "bg-blue-600 text-white" : "bg-secondary text-muted-foreground hover:bg-accent"}`}>{l}</button>
               ))}
             </div>
