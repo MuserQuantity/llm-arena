@@ -162,6 +162,7 @@ async def get_model_eval(model_id: str, db: AsyncSession = Depends(get_db)):
             assignments = {a.task_id: a for a in assignments_result.scalars().all()}
         except Exception:
             logger.error("model-eval %s: fallback query also failed", model_id, exc_info=True)
+            await db.rollback()
             assignments = {}
 
     # Load tasks AFTER the assignments block so a potential rollback above
