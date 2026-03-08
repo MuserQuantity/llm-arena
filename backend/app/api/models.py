@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.models import LLMModel
+from app.models.models import LLMModel, Run, TaskModelAssignment
 from app.schemas.schemas import ModelCreate, ModelResponse, ModelUpdate
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -66,7 +67,14 @@ async def update_model(model_id: str, data: ModelUpdate, db: AsyncSession = Depe
 
 @router.delete("/{model_id}", status_code=204)
 async def delete_model(model_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(LLMModel).where(LLMModel.id == model_id))
+    result = await db.execute(
+        select(LLMModel).where(LLMModel.id == model_id)
+        .options(
+            selectinload(LLMModel.task_assignments)
+            .selectinload(TaskModelAssignment.runs)
+            .selectinload(Run.scores)
+        )
+    )
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
