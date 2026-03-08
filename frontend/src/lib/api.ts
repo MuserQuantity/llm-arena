@@ -208,7 +208,7 @@ export interface TaskCreatePayload {
   prompt?: string;
   yaml_config?: string;
   eval_mode?: string;
-  judge_model_id?: string;
+  judge_model_id?: string | null;
   judge_rubric?: string;
   expected_output_type?: string;
 }

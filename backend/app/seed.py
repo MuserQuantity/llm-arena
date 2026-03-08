@@ -127,7 +127,6 @@ async def seed():
                     "Use TypeScript and Tailwind CSS."
                 ),
                 eval_mode="llm_judge",
-                judge_model_id=models_data[0].id,
                 judge_rubric="Evaluate code quality, completeness, UI design, and TypeScript usage on a 1-10 scale.",
                 expected_output_type="code",
             ),
@@ -139,7 +138,6 @@ async def seed():
                     "QuickSort, MergeSort, HeapSort. Provide Big-O notation for best, average, and worst cases."
                 ),
                 eval_mode="llm_judge",
-                judge_model_id=models_data[0].id,
                 judge_rubric="Evaluate correctness, completeness, and clarity of the analysis on a 1-10 scale.",
                 expected_output_type="text",
             ),
@@ -151,7 +149,6 @@ async def seed():
                     "with proper validation, error handling, and async database operations."
                 ),
                 eval_mode="both",
-                judge_model_id=models_data[1].id,
                 judge_rubric=(
                     "Evaluate code correctness, error handling, async patterns, "
                     "and API design on a 1-10 scale."

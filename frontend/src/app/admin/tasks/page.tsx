@@ -17,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { apiTasks, apiDimensions, TaskResponse, DimensionResponse, TaskCreatePayload } from "@/lib/api";
+import { apiTasks, apiDimensions, apiModels, TaskResponse, DimensionResponse, TaskCreatePayload, ModelResponse } from "@/lib/api";
 import { Plus, Pencil, Trash2, Filter, HelpCircle } from "lucide-react";
 
 type EvalMode = "script_only" | "llm_judge" | "both";
@@ -151,21 +151,28 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
   const [prompt, setPrompt] = useState("");
   const [outputType, setOutputType] = useState("text");
   const [evalMode, setEvalMode] = useState<EvalMode>("llm_judge");
+  const [judgeModelId, setJudgeModelId] = useState<string>("");
   const [rubric, setRubric] = useState("");
   const [scriptContent, setScriptContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [models, setModels] = useState<ModelResponse[]>([]);
   const isEdit = !!editTask;
+
+  useEffect(() => {
+    apiModels.list().then(m => setModels(m.filter(x => x.status === "active"))).catch(() => {});
+  }, [open]);
 
   useEffect(() => {
     if (editTask) {
       setTitle(editTask.title); setDimensionId(editTask.dimension_id);
       setPrompt(editTask.prompt); setOutputType(editTask.expected_output_type || "text");
       setEvalMode((editTask.eval_mode as EvalMode) || "llm_judge");
+      setJudgeModelId(editTask.judge_model_id || "");
       setRubric(editTask.judge_rubric || ""); setScriptContent(editTask.yaml_config || "");
     } else {
       setTitle(""); setDimensionId(""); setPrompt(""); setOutputType("text");
-      setEvalMode("llm_judge"); setRubric(""); setScriptContent("");
+      setEvalMode("llm_judge"); setJudgeModelId(""); setRubric(""); setScriptContent("");
     }
     setError("");
   }, [editTask, open]);
@@ -177,6 +184,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
       const payload: TaskCreatePayload = {
         title, dimension_id: dimensionId, prompt,
         expected_output_type: outputType, eval_mode: evalMode,
+        judge_model_id: judgeModelId || null,
         judge_rubric: rubric, yaml_config: scriptContent,
       };
       if (isEdit && editTask) await apiTasks.update(editTask.id, payload);
@@ -309,6 +317,27 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
           {/* Conditional sections */}
           {(showJudge || showScript) && <hr className="border-border" />}
 
+          {showJudge && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Judge 模型</label>
+              <Select value={judgeModelId || "__global__"} onValueChange={v => setJudgeModelId(v === "__global__" ? "" : v)}>
+                <SelectTrigger className="h-10">
+                  {judgeModelId ? (
+                    <span className="flex flex-1 text-left truncate">
+                      {models.find(m => m.id === judgeModelId)?.name || judgeModelId} ({models.find(m => m.id === judgeModelId)?.provider || ""})
+                    </span>
+                  ) : (
+                    <span className="flex flex-1 text-left truncate">使用全局设置</span>
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">使用全局设置（系统设置中配置的 Judge）</SelectItem>
+                  {models.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.provider})</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <FieldHelp>为此任务选择专用的 Judge 模型。选择"使用全局设置"则会使用系统设置中配置的默认 Judge 模型。</FieldHelp>
+            </div>
+          )}
           {showJudge && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Judge 评分标准（Rubric）</label>
