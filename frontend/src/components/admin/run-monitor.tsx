@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { ModelIcon } from "@/components/layout/model-icon";
 import {
   Table,
@@ -92,18 +93,38 @@ export function RunMonitor() {
 
   const executeRun = async (runId: string) => {
     setExecutingIds(prev => new Set(prev).add(runId));
+    const toastId = toast.loading("正在执行...");
     try {
-      await apiRuns.execute(runId);
+      const result = await apiRuns.execute(runId);
+      if (result.error) {
+        toast.error("执行失败", { id: toastId, description: result.error });
+      } else {
+        const dur = result.duration_ms ? `耗时 ${(result.duration_ms / 1000).toFixed(1)}s` : "";
+        toast.success("执行完成", { id: toastId, description: dur || undefined });
+      }
       await fetchRuns();
-    } catch (e) { console.error(e); } finally { setExecutingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("执行出错", { id: toastId, description: msg });
+      console.error(e);
+    } finally { setExecutingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
   };
 
   const judgeRun = async (runId: string) => {
     setJudgingIds(prev => new Set(prev).add(runId));
+    const toastId = toast.loading("正在评分...");
     try {
-      await apiJudge.scoreRun(runId);
+      const score = await apiJudge.scoreRun(runId);
+      toast.success("评分完成", {
+        id: toastId,
+        description: score.numeric_score !== null ? `得分: ${score.numeric_score}` : undefined,
+      });
       await fetchRuns();
-    } catch (e) { console.error(e); } finally { setJudgingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("评分失败", { id: toastId, description: msg });
+      console.error(e);
+    } finally { setJudgingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
   };
 
   const uniqueTasks = Array.from(new Set(allRuns.map((r) => r.task_title).filter(Boolean))) as string[];

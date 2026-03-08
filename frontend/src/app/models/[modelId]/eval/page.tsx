@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import { Topbar } from "@/components/layout/topbar";
 import { ModelIcon } from "@/components/layout/model-icon";
 import {
@@ -35,7 +36,11 @@ export default function ModelEvalPage() {
     try {
       const d = await apiDashboard.modelEval(modelId);
       setData(d);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("加载评测数据失败", { description: msg });
+    } finally { setLoading(false); }
   }, [modelId]);
 
   useEffect(() => { load(); }, [load]);
@@ -63,52 +68,103 @@ export default function ModelEvalPage() {
   }, []);
 
   const executeTask = async (taskId: string) => {
+    const taskTitle = data?.tasks.find(t => t.task_id === taskId)?.task_title || taskId;
     setExecutingTask(taskId);
+    const toastId = toast.loading(`正在执行: ${taskTitle}`, { description: "发送 Prompt 到模型中..." });
     try {
       try { await apiTasks.createAssignment(taskId, { model_id: modelId }); } catch { /* may exist */ }
       const result = await apiRuns.createForTask(taskId, modelId);
       if (result.run_ids.length > 0) {
-        await apiRuns.execute(result.run_ids[0]);
+        toast.loading(`正在执行: ${taskTitle}`, { id: toastId, description: "等待模型响应..." });
+        const execResult = await apiRuns.execute(result.run_ids[0]);
+        if (execResult.error) {
+          toast.error(`执行失败: ${taskTitle}`, { id: toastId, description: execResult.error });
+        } else {
+          const dur = execResult.duration_ms ? `${(execResult.duration_ms / 1000).toFixed(1)}s` : "";
+          toast.success(`执行完成: ${taskTitle}`, { id: toastId, description: dur ? `耗时 ${dur}` : undefined });
+        }
       }
-      setTimeout(() => load(), 2000);
-    } catch (e) { console.error(e); } finally { setExecutingTask(null); }
+      await load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`执行出错: ${taskTitle}`, { id: toastId, description: msg });
+      console.error(e);
+    } finally { setExecutingTask(null); }
   };
 
   const judgeRun = async (runId: string) => {
     setJudgingRun(runId);
+    const toastId = toast.loading("正在评分...", { description: "调用 Judge 模型中..." });
     try {
-      await apiJudge.scoreRun(runId);
+      const score = await apiJudge.scoreRun(runId);
+      toast.success("评分完成", {
+        id: toastId,
+        description: score.numeric_score !== null ? `得分: ${score.numeric_score}` : "评分已保存",
+      });
       await load();
-    } catch (e) { console.error(e); } finally { setJudgingRun(null); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("评分失败", { id: toastId, description: msg });
+      console.error(e);
+    } finally { setJudgingRun(null); }
   };
 
   const executeAllUnrun = async () => {
     if (!data) return;
     setBatchExecuting(true);
-    const unrunTasks = data.tasks.filter(t => !t.run_status);
-    for (const task of unrunTasks) {
+    const unrunTasksList = data.tasks.filter(t => !t.run_status);
+    const total = unrunTasksList.length;
+    let done = 0;
+    let failed = 0;
+    const toastId = toast.loading(`批量执行中 (0/${total})...`);
+    for (const task of unrunTasksList) {
       try {
         try { await apiTasks.createAssignment(task.task_id, { model_id: modelId }); } catch { /* may exist */ }
         const result = await apiRuns.createForTask(task.task_id, modelId);
         if (result.run_ids.length > 0) {
           await apiRuns.execute(result.run_ids[0]);
         }
-      } catch (e) { console.error(e); }
+        done++;
+        toast.loading(`批量执行中 (${done}/${total})...`, { id: toastId, description: `当前: ${task.task_title}` });
+      } catch (e) {
+        failed++;
+        console.error(e);
+      }
     }
-    setTimeout(async () => { await load(); setBatchExecuting(false); }, 2000);
+    await load();
+    setBatchExecuting(false);
+    if (failed === 0) {
+      toast.success(`批量执行完成`, { id: toastId, description: `${done} 个任务全部完成` });
+    } else {
+      toast.warning(`批量执行完成`, { id: toastId, description: `${done} 个成功, ${failed} 个失败` });
+    }
   };
 
   const judgeAllUnjudged = async () => {
     if (!data) return;
     setBatchJudging(true);
     const unjudged = data.tasks.filter(t => t.run_status === "done" && t.run_id && t.llm_score === null);
+    const total = unjudged.length;
+    let done = 0;
+    let failed = 0;
+    const toastId = toast.loading(`批量评分中 (0/${total})...`);
     for (const task of unjudged) {
       try {
+        toast.loading(`批量评分中 (${done}/${total})...`, { id: toastId, description: `当前: ${task.task_title}` });
         await apiJudge.scoreRun(task.run_id!);
-      } catch (e) { console.error(e); }
+        done++;
+      } catch (e) {
+        failed++;
+        console.error(e);
+      }
     }
     await load();
     setBatchJudging(false);
+    if (failed === 0) {
+      toast.success(`批量评分完成`, { id: toastId, description: `${done} 个任务全部评分完成` });
+    } else {
+      toast.warning(`批量评分完成`, { id: toastId, description: `${done} 个成功, ${failed} 个失败` });
+    }
   };
 
   if (loading) return <><Topbar title="模型评测" /><main className="p-8"><div className="text-center py-20 text-muted-foreground">加载评测数据中...</div></main></>;

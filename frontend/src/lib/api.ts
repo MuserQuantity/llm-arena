@@ -106,7 +106,7 @@ export const apiRuns = {
     return apiFetch<{ created: number; run_ids: string[] }>(`/api/runs?${params.toString()}`, { method: "POST" });
   },
   retry: (id: string) => apiFetch<RunResponse>(`/api/runs/${id}/retry`, { method: "POST" }),
-  execute: (id: string) => apiFetch<{ status: string; run_id: string }>(`/api/runs/${id}/execute`, { method: "POST" }),
+  execute: (id: string) => apiFetch<{ status: string; run_id: string; duration_ms?: number | null; error?: string | null }>(`/api/runs/${id}/execute`, { method: "POST" }),
 };
 
 // ── Scores ──
