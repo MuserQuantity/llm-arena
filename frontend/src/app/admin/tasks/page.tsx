@@ -151,7 +151,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
   const [prompt, setPrompt] = useState("");
   const [outputType, setOutputType] = useState("text");
   const [evalMode, setEvalMode] = useState<EvalMode>("llm_judge");
-  const [judgeModelId, setJudgeModelId] = useState<string>("");
+  const [judgeModelId, setJudgeModelId] = useState("");
   const [rubric, setRubric] = useState("");
   const [scriptContent, setScriptContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -320,7 +320,7 @@ function TaskDrawer({ open, onOpenChange, editTask, dimensions }: {
           {showJudge && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Judge 模型</label>
-              <Select value={judgeModelId || "__global__"} onValueChange={v => setJudgeModelId(v === "__global__" ? "" : v)}>
+              <Select value={judgeModelId || "__global__"} onValueChange={v => setJudgeModelId(v === "__global__" ? "" : (v ?? ""))}>
                 <SelectTrigger className="h-10">
                   {judgeModelId ? (
                     <span className="flex flex-1 text-left truncate">
