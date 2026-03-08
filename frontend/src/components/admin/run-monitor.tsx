@@ -52,8 +52,8 @@ export function RunMonitor() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [executingId, setExecutingId] = useState<string | null>(null);
-  const [judgingId, setJudgingId] = useState<string | null>(null);
+  const [executingIds, setExecutingIds] = useState<Set<string>>(new Set());
+  const [judgingIds, setJudgingIds] = useState<Set<string>>(new Set());
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -91,19 +91,19 @@ export function RunMonitor() {
   );
 
   const executeRun = async (runId: string) => {
-    setExecutingId(runId);
+    setExecutingIds(prev => new Set(prev).add(runId));
     try {
       await apiRuns.execute(runId);
       await fetchRuns();
-    } catch (e) { console.error(e); } finally { setExecutingId(null); }
+    } catch (e) { console.error(e); } finally { setExecutingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
   };
 
   const judgeRun = async (runId: string) => {
-    setJudgingId(runId);
+    setJudgingIds(prev => new Set(prev).add(runId));
     try {
       await apiJudge.scoreRun(runId);
       await fetchRuns();
-    } catch (e) { console.error(e); } finally { setJudgingId(null); }
+    } catch (e) { console.error(e); } finally { setJudgingIds(prev => { const next = new Set(prev); next.delete(runId); return next; }); }
   };
 
   const uniqueTasks = Array.from(new Set(allRuns.map((r) => r.task_title).filter(Boolean))) as string[];
@@ -228,10 +228,10 @@ export function RunMonitor() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => executeRun(run.id)}
-                        disabled={executingId === run.id}
+                        disabled={executingIds.has(run.id)}
                         title="Execute run"
                       >
-                        {executingId === run.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                        {executingIds.has(run.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                       </Button>
                     )}
                     {run.status === "done" && (
@@ -241,10 +241,10 @@ export function RunMonitor() {
                           size="sm"
                           className="h-7 w-7 p-0"
                           onClick={() => judgeRun(run.id)}
-                          disabled={judgingId === run.id}
+                          disabled={judgingIds.has(run.id)}
                           title="Run LLM Judge"
                         >
-                          {judgingId === run.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
+                          {judgingIds.has(run.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
                         </Button>
                         <Link href={`/results/${run.id}`}>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="View Results">
